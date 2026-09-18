@@ -47,15 +47,17 @@ von.set_backend("qwen0.5b")
 
 ### Benchmark Comparison (OpenJev `authored144` Suite)
 
-| Backend / Model | Weights | Hardware / Env | Balanced Acc | Latency / Call | VRAM Needed |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **46.7%** | **~38 ms** (embed) | **0 MB** |
-| **Von (`modernbert`)** | **290 MB** | **CPU (In-Process)** | **45.7%** | **~35 ms** | **0 MB** |
-| **Von (`qwen0.5b`)** | **942 MB** | **CPU (In-Process)** | **64.4%** | **~650 ms (CPU)** | **0 MB** |
-| Qwen3-0.6B (OpenJev) | 639 MB | GPU / WebGPU | 44.0% | ~35 ms | 1.2 GB |
-| MiniCPM5-2B (OpenJev) | 1.56 GB | GPU / WebGPU | 68.6% | ~40 ms | 3.5 GB |
-| Qwen3.5-4B (OpenJev) | 3.01 GB | RTX 3090 (24GB) | 81.3% | ~48 ms | 8.0 GB |
-| Published Jev (TypeSafe) | Remote | Closed Cloud API | 88.3% | 100–300 ms | Cloud |
+| Backend / Model | Weights | Hardware / Env | Balanced Acc | Acc / Weight (%/MB) | Latency / Call | VRAM Needed |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **46.7%** | **3.336% / MB** 🏆 | **~38 ms** (embed) | **0 MB** |
+| **Von (`modernbert`)** | **290 MB** | **CPU (In-Process)** | **45.7%** | **0.158% / MB** | **~35 ms** | **0 MB** |
+| **Von (`qwen0.5b`)** | **942 MB** | **CPU (In-Process)** | **64.4%** | **0.068% / MB** | **~650 ms (CPU)** | **0 MB** |
+| Qwen3-0.6B (OpenJev) | 639 MB | GPU / WebGPU | 44.0% | 0.069% / MB | ~35 ms | 1.2 GB |
+| MiniCPM5-2B (OpenJev) | 1.56 GB | GPU / WebGPU | 68.6% | 0.044% / MB | ~40 ms | 3.5 GB |
+| Qwen3.5-4B (OpenJev) | 3.01 GB | RTX 3090 (24GB) | 81.3% | 0.027% / MB | ~48 ms | 8.0 GB |
+| Published Jev (TypeSafe) | ~8–16 GB* | Closed Cloud API | 88.3% | ~0.005–0.011%/MB | 100–300 ms | Cloud (MoE) |
+
+*\* Jev weight estimate based on Archer Hume's reverse-engineering analysis across 10,000 API calls, indicating a causal sparse MoE backbone (~8B–14B total parameters, ~2B active parameters).*
 
 ---
 

@@ -55,33 +55,35 @@ def run_profiler(data_path: str = "benchmarks/data/authored144.jsonl", limit: in
     print(f"==========================================================================\n")
 
     backends = [
-        ("needle", "Needle 3 (14MB)", "14 MB", "28 MB RAM (CPU)"),
-        ("modernbert", "ModernBERT-151M", "290 MB", "~450 MB RAM (CPU)"),
-        ("qwen0.5b", "Qwen2.5-0.5B (PCD)", "942 MB", "~1.2 GB RAM (CPU)"),
+        ("needle", "Needle 3 (14MB)", 14.0, "14 MB", "28 MB RAM (CPU)"),
+        ("modernbert", "ModernBERT-151M", 290.0, "290 MB", "~450 MB RAM (CPU)"),
+        ("qwen0.5b", "Qwen2.5-0.5B (PCD)", 942.0, "942 MB", "~1.2 GB RAM (CPU)"),
     ]
 
     results = []
-    for b_id, b_label, size, hw in backends:
+    for b_id, b_label, size_mb, size_str, hw in backends:
         print(f"Profiling backend: {b_label}...")
         try:
             raw_acc, bal_acc, avg_lat = evaluate_backend(b_id, rows)
-            results.append((b_label, size, hw, raw_acc, bal_acc, avg_lat))
-            print(f"  -> Balanced Acc: {bal_acc*100:.1f}%, Raw Acc: {raw_acc*100:.1f}%, Latency: {avg_lat:.1f}ms\n")
+            eff = (bal_acc * 100.0) / size_mb
+            results.append((b_label, size_str, hw, raw_acc, bal_acc, eff, avg_lat))
+            print(f"  -> Balanced Acc: {bal_acc*100:.1f}%, Acc/Weight: {eff:.3f}%/MB, Latency: {avg_lat:.1f}ms\n")
         except Exception as e:
             print(f"  -> Failed to profile {b_label}: {e}\n")
 
-    print(f"==========================================================================")
+    print(f"=================================================================================================")
     print(f"  FINAL COMPARATIVE LADDER")
-    print(f"==========================================================================")
-    print(f"| Backend / Model            | Size    | Hardware / Env     | Balanced Acc | Latency / Call |")
-    print(f"| :------------------------- | :------ | :----------------- | :----------- | :------------- |")
-    for b_label, size, hw, raw_acc, bal_acc, avg_lat in results:
-        print(f"| **{b_label:26}** | {size:7} | {hw:18} | **{bal_acc*100:5.1f}%**     | **{avg_lat:6.1f} ms**     |")
-    print(f"| Qwen3-0.6B (OpenJev)       | 639 MB  | GPU / WebGPU       | 44.0%        | ~35 ms         |")
-    print(f"| MiniCPM5-2B (OpenJev)      | 1.56 GB | GPU / WebGPU       | 68.6%        | ~40 ms         |")
-    print(f"| Qwen3.5-4B (OpenJev)       | 3.01 GB | RTX 3090 (24GB)    | 81.3%        | ~48 ms         |")
-    print(f"| Published Jev (TypeSafe)   | Remote  | Closed Cloud API   | 88.3%        | 100-300 ms     |")
-    print(f"==========================================================================\n")
+    print(f"=================================================================================================")
+    print(f"| Backend / Model            | Size      | Hardware / Env     | Balanced Acc | Acc/Weight (%/MB) | Latency / Call |")
+    print(f"| :------------------------- | :-------- | :----------------- | :----------- | :---------------- | :------------- |")
+    for b_label, size, hw, raw_acc, bal_acc, eff, avg_lat in results:
+        print(f"| **{b_label:26}** | {size:9} | {hw:18} | **{bal_acc*100:5.1f}%**     | **{eff:6.3f}% / MB**    | **{avg_lat:6.1f} ms**     |")
+    print(f"| Qwen3-0.6B (OpenJev)       | 639 MB    | GPU / WebGPU       | 44.0%        | 0.069% / MB       | ~35 ms         |")
+    print(f"| MiniCPM5-2B (OpenJev)      | 1.56 GB   | GPU / WebGPU       | 68.6%        | 0.044% / MB       | ~40 ms         |")
+    print(f"| Qwen3.5-4B (OpenJev)       | 3.01 GB   | RTX 3090 (24GB)    | 81.3%        | 0.027% / MB       | ~48 ms         |")
+    print(f"| Published Jev (TypeSafe)   | ~8–16 GB* | Closed Cloud API   | 88.3%        | ~0.005–0.011%/MB  | 100-300 ms     |")
+    print(f"=================================================================================================")
+    print(f"* Speculated Jev size: ~8B–14B MoE causal backbone (~8–16 GB) based on Archer Hume reverse-engineering.\n")
 
 
 if __name__ == "__main__":
