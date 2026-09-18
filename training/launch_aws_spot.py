@@ -26,8 +26,13 @@ SUBNETS = [
 ]
 AMI_ID = "ami-0e24e0019a12c5b13"  # Deep Learning Base AMI with CUDA
 CANDIDATE_TYPES = [
-    ("g4dn.12xlarge", "4x NVIDIA T4 (64GB VRAM, Spot ~$1.52/hr)"),
-    ("g5.xlarge", "1x NVIDIA A10G (24GB VRAM, Spot ~$0.52/hr)"),
+    ("g5.2xlarge", "1x NVIDIA A10G 24GB, 8 vCPU (Spot ~$0.54/hr)"),
+    ("g5.4xlarge", "1x NVIDIA A10G 24GB, 16 vCPU (Spot ~$0.69/hr)"),
+    ("g6.xlarge", "1x NVIDIA L4 24GB, 4 vCPU (Spot ~$0.56/hr)"),
+    ("g6.2xlarge", "1x NVIDIA L4 24GB, 8 vCPU (Spot ~$0.65/hr)"),
+    ("g5.xlarge", "1x NVIDIA A10G 24GB, 4 vCPU (Spot ~$0.52/hr)"),
+    ("g4dn.2xlarge", "1x NVIDIA T4 16GB, 8 vCPU (Spot ~$0.34/hr)"),
+    ("g4dn.12xlarge", "4x NVIDIA T4 64GB, 48 vCPU (Spot ~$1.52/hr)"),
 ]
 IAM_PROFILE = "AmazonSSMRoleForInstancesQuickSetup"
 S3_TARGET = "s3://model-weight/von-modernbert-rlcd"
