@@ -7,6 +7,8 @@ import click
 import uvicorn
 
 from .api import decide as api_decide
+from .api import judge as api_judge
+from .api import rate as api_rate
 from .api import system_one as api_system_one
 
 
@@ -56,6 +58,81 @@ def decide(text: str, choices: str, instructions: str):
             {
                 "choice": ans.choice,
                 "confidence": ans.confidence,
+                "probabilities": ans.probabilities,
+            },
+            indent=2,
+        )
+    )
+
+
+@main.command()
+@click.argument("text")
+@click.option(
+    "-i",
+    "--instructions",
+    required=True,
+    help="Boolean judgment question (e.g. 'Is the server down?').",
+)
+@click.option(
+    "--pos",
+    default="",
+    help="Explicit criteria description for True condition.",
+)
+@click.option(
+    "--neg",
+    default="",
+    help="Explicit criteria description for False condition.",
+)
+def judge(text: str, instructions: str, pos: str, neg: str):
+    """Evaluate a yes/no judgment (Noul) and return the probability."""
+    crit = {}
+    if pos:
+        crit["true"] = pos
+    if neg:
+        crit["false"] = neg
+
+    prob = api_judge(state=text, instructions=instructions, criteria=crit or None)
+    click.echo(
+        json.dumps(
+            {
+                "type": "noul",
+                "instructions": instructions,
+                "noul": prob,
+            },
+            indent=2,
+        )
+    )
+
+
+@main.command()
+@click.argument("text")
+@click.option(
+    "-l",
+    "--levels",
+    required=True,
+    help="Comma-separated descriptions of ordered levels from 0 to N-1.",
+)
+@click.option(
+    "-i",
+    "--instructions",
+    default="Rate where the state falls on this scale:",
+    help="Instructions for rating.",
+)
+def rate(text: str, levels: str, instructions: str):
+    """Rate text on an ordered multi-level scale (Score)."""
+    lvl_list = [lvl.strip() for lvl in levels.split(",") if lvl.strip()]
+    if len(lvl_list) < 2:
+        click.echo("Error: At least two levels must be provided.", err=True)
+        sys.exit(1)
+
+    ans = api_rate(state=text, criteria=lvl_list, instructions=instructions)
+    click.echo(
+        json.dumps(
+            {
+                "type": "score",
+                "score": ans.score,
+                "confidence": ans.confidence,
+                "legend": ans.legend,
                 "probabilities": ans.probabilities,
             },
             indent=2,
