@@ -32,17 +32,17 @@ class VonEngine:
         self.backend_name = backend_name.lower().strip()
         if self.backend_name in ("needle", "cactus-needle", "needle-json", "needle_json"):
             self.backend: BaseBackend = NeedleBackend()
+        elif self.backend_name in ("modernbert", "berta-modern", "modernbert-nli", "von"):
+            self.backend = BertaBackend(variant="modernbert")
         elif self.backend_name in ("laya", "laya-421m", "convaiinnovations/laya"):
             self.backend = LayaBackend()
         elif self.backend_name in ("berta", "berta-v3", "deberta", "deberta-v3"):
             self.backend = BertaBackend(variant="deberta-v3")
-        elif self.backend_name in ("berta-modern", "modernbert", "modernbert-nli"):
-            self.backend = BertaBackend(variant="modernbert")
         elif self.backend_name in ("berta-xxl", "deberta-xxl", "deberta-v2-xxlarge"):
             self.backend = BertaBackend(variant="deberta-xxl")
         else:
             raise ValueError(
-                f"Unknown backend '{self.backend_name}'. Available: needle, laya, berta-v3, berta-modern, berta-xxl"
+                f"Unknown backend '{self.backend_name}'. Available: needle, modernbert, laya, berta-v3"
             )
 
     @classmethod
