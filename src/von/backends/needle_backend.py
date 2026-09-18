@@ -1,4 +1,4 @@
-"""Needle 3 backend for Von (14MB, CPU, ultra-lightweight)."""
+"""Needle 3 backend for Von (14MB, CPU, dual-strategy tool extraction with polarity alignment)."""
 
 import json
 import math
@@ -87,7 +87,7 @@ def _resolve_state_path(state: Any, path: str) -> Optional[Any]:
 
 
 class NeedleBackend(BaseBackend):
-    """Execution engine powered by Needle 3."""
+    """Needle 3 System One decision engine."""
 
     def __init__(self, generation: int = 3):
         self._generation = generation
@@ -111,33 +111,54 @@ class NeedleBackend(BaseBackend):
         q: Choice,
         state_emb: Optional[List[float]] = None,
         temperature: float = 0.003,
+        **kwargs,
     ) -> ChoiceAnswer:
         options = list(q.criteria.keys())
         if not options:
             return ChoiceAnswer(choice="", probabilities={}, confidence=0.0)
 
+        desc_items = [
+            f"'{k}': {v}" if v else f"'{k}'" for k, v in q.criteria.items()
+        ]
+        full_desc = f"{q.instructions}. Allowed choices: {'; '.join(desc_items)}"
+        lit_type = Literal[tuple(options)]  # type: ignore
+        model_name = _to_camel(q_id)
+
+        # 1. Dual-strategy tool extraction
+        extracted_choice = None
+
+        # Strategy A: Docstring tool prompt (strong on complex reasoning)
+        try:
+            DynModelA = create_model(
+                model_name,
+                choice=(lit_type, Field(description=f"Must be one of: {options}")),
+                __doc__=full_desc,
+            )
+            resA = needle.extract(state_text, DynModelA, strict=False, generation=self._generation)
+            c = getattr(resA, "choice", None)
+            if c in options:
+                extracted_choice = c
+        except Exception:
+            pass
+
+        # Strategy B: Field-level prompt (strong on short keywords & service routing)
+        if extracted_choice is None:
+            try:
+                DynModelB = create_model(
+                    model_name,
+                    choice=(lit_type, Field(description=full_desc)),
+                )
+                resB = needle.extract(state_text, DynModelB, strict=False, generation=self._generation)
+                c = getattr(resB, "choice", None)
+                if c in options:
+                    extracted_choice = c
+            except Exception:
+                pass
+
+        # 2. Semantic similarity & polarity alignment
         if state_emb is None:
             state_emb = self.embed(state_text)
 
-        # 1. Native needle extraction
-        extracted_choice = None
-        try:
-            desc_items = [
-                f"'{k}': {v}" if v else f"'{k}'" for k, v in q.criteria.items()
-            ]
-            full_desc = f"{q.instructions}. Allowed choices: {'; '.join(desc_items)}"
-            lit_type = Literal[tuple(options)]  # type: ignore
-            model_name = _to_camel(q_id)
-            DynModel = create_model(model_name, choice=(lit_type, Field(description=full_desc)))
-
-            res = needle.extract(state_text, DynModel, strict=False, generation=self._generation)
-            extracted_choice = getattr(res, "choice", None)
-            if extracted_choice not in options:
-                extracted_choice = None
-        except Exception:
-            extracted_choice = None
-
-        # 2. Semantic similarity
         candidate_prompts = []
         for key in options:
             desc = q.criteria.get(key)
@@ -146,7 +167,6 @@ class NeedleBackend(BaseBackend):
 
         sims = [_cos_sim(state_emb, self.embed(cand)) for cand in candidate_prompts]
 
-        # Polarity & negation alignment
         state_lower = state_text.lower()
         state_has_pos = any(w in state_lower for w in ["completed", "passed", "succeeded", "healthy", "success", "working"])
         state_has_neg = any(w in state_lower for w in ["failed", "crashed", "error", "decline", "timed out", "rollback initiated"])
@@ -161,22 +181,20 @@ class NeedleBackend(BaseBackend):
 
         probs = _softmax(sims, temperature=temperature)
 
-        if extracted_choice and extracted_choice in options:
-            is_contradicting_polarity = False
+        # Polarity contradiction guard on extracted choice
+        is_contradicting_polarity = False
+        if extracted_choice:
             if state_has_pos and not state_has_neg:
                 extracted_desc = (q.criteria.get(extracted_choice) or "").lower()
                 if any(w in extracted_desc for w in ["not", "did not", "never", "fail", "cannot"]) or extracted_choice == "no":
                     is_contradicting_polarity = True
 
-            if not is_contradicting_polarity:
-                win_idx = options.index(extracted_choice)
-                if probs[win_idx] < max(probs):
-                    sims[win_idx] += 0.015
-                    probs = _softmax(sims, temperature=temperature)
-                best_choice = extracted_choice
-            else:
-                win_idx = max(range(len(probs)), key=lambda i: probs[i])
-                best_choice = options[win_idx]
+        if extracted_choice and not is_contradicting_polarity:
+            best_choice = extracted_choice
+            win_idx = options.index(best_choice)
+            if probs[win_idx] < max(probs):
+                sims[win_idx] += 0.015
+                probs = _softmax(sims, temperature=temperature)
         else:
             win_idx = max(range(len(probs)), key=lambda i: probs[i])
             best_choice = options[win_idx]
@@ -194,6 +212,7 @@ class NeedleBackend(BaseBackend):
         q: Score,
         state_emb: Optional[List[float]] = None,
         temperature: float = 0.003,
+        **kwargs,
     ) -> ScoreAnswer:
         levels = q.criteria
         if not levels:
@@ -225,7 +244,12 @@ class NeedleBackend(BaseBackend):
         sorted_p = sorted(probs, reverse=True)
         confidence = round(max(0.0, min(1.0, sorted_p[0] - (sorted_p[1] if len(sorted_p) > 1 else 0.0))), 3)
 
-        return ScoreAnswer(score=weighted_score, confidence=confidence, legend=legend, probabilities=prob_dict)
+        return ScoreAnswer(
+            score=weighted_score,
+            confidence=confidence,
+            legend=legend,
+            probabilities=prob_dict,
+        )
 
     def evaluate_noul(
         self,
@@ -234,13 +258,14 @@ class NeedleBackend(BaseBackend):
         q: Noul,
         state_emb: Optional[List[float]] = None,
         temperature: float = 0.003,
+        **kwargs,
     ) -> NoulAnswer:
-        if state_emb is None:
-            state_emb = self.embed(state_text)
-
         crit = q.criteria or {}
         pos_crit = crit.get("true", "")
         neg_crit = crit.get("false", "")
+
+        if state_emb is None:
+            state_emb = self.embed(state_text)
 
         pos_prompt = f"{q.instructions} Confirmation, yes, condition true. {pos_crit}".strip()
         neg_prompt = f"{q.instructions} Denial, no, condition false. {neg_crit}".strip()

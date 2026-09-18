@@ -4,7 +4,12 @@ import os
 import threading
 from typing import Any, Dict, List, Optional, Union
 
-from .backends import BaseBackend, ModernBERTBackend, NeedleBackend, QwenPCDBackend
+from .backends import (
+    BaseBackend,
+    ModernBERTBackend,
+    NeedleBackend,
+    QwenPCDBackend,
+)
 from .types import (
     Choice,
     ChoiceAnswer,
@@ -25,7 +30,7 @@ class VonEngine:
 
     def __init__(self, backend_name: str = "needle"):
         self.backend_name = backend_name.lower().strip()
-        if self.backend_name in ("needle", "cactus-needle"):
+        if self.backend_name in ("needle", "cactus-needle", "needle-json", "needle_json"):
             self.backend: BaseBackend = NeedleBackend()
         elif self.backend_name in ("modernbert", "rlcd-modernbert", "bert-151m"):
             self.backend = ModernBERTBackend()

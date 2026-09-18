@@ -49,7 +49,7 @@ von.set_backend("qwen0.5b")
 
 | Backend / Model | Weights | Hardware / Env | Balanced Acc | Acc / Weight (%/MB) | Latency / Call | VRAM Needed |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **46.7%** | **3.336% / MB** 🏆 | **~38 ms** (embed) | **0 MB** |
+| **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **52.6%** | **3.757% / MB** 🏆 | **~38 ms** (embed) | **0 MB** |
 | **Von (`modernbert`)** | **290 MB** | **CPU (In-Process)** | **45.7%** | **0.158% / MB** | **~35 ms** | **0 MB** |
 | **Von (`qwen0.5b`)** | **942 MB** | **CPU (In-Process)** | **64.4%** | **0.068% / MB** | **~650 ms (CPU)** | **0 MB** |
 | Qwen3-0.6B (OpenJev) | 639 MB | GPU / WebGPU | 44.0% | 0.069% / MB | ~35 ms | 1.2 GB |
@@ -273,6 +273,10 @@ Von builds upon and recognizes foundational open-source and research contributio
    - The **Needle 3** engine and `cactus-needle` package.
    - Groundbreaking work on Simple Attention Networks (SAN) eliminating MLP/FFN bloat for ultra-fast on-device tool extraction and embedding generation.
    - Repository: [github.com/cactus-compute/needle](https://github.com/cactus-compute/needle).
+
+3. **Archer Hume:**
+   - Reverse-engineering analysis across 10,000 API calls documenting Jev's internal architecture, shared KV prefill, parallel causal branching, and sparse MoE backbone.
+   - Analysis: ["Jev's Architecture Unmasked"](https://archerhume.com/posts/jevs-architecture-unmasked/?v=3).
 
 ---
 
