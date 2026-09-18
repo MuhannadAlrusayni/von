@@ -10,6 +10,7 @@ from .api import decide as api_decide
 from .api import judge as api_judge
 from .api import rate as api_rate
 from .api import system_one as api_system_one
+from .backends.berta_backend import _detect_device, get_device_description
 
 
 @click.group()
@@ -23,14 +24,16 @@ def main():
 @click.option("--host", default="0.0.0.0", help="Host interface to bind on.")
 @click.option("--port", default=8000, type=int, help="Port to listen on.")
 @click.option("--backend", default="modernbert", type=click.Choice(["modernbert", "laya", "needle", "berta-v3"]), help="Decision backend to load.")
-@click.option("--device", default="auto", help="Compute device: 'auto', 'cuda', 'mps', 'cpu'.")
+@click.option("--device", default="auto", help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'dml', 'cpu'.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
 def serve(host: str, port: int, backend: str, device: str, reload: bool):
     """Start the Von System One HTTP server."""
     os.environ["VON_BACKEND"] = backend
     if device and device != "auto":
         os.environ["VON_DEVICE"] = device
-    click.echo(f"Starting Von Decision Server [{backend} on {device}] on http://{host}:{port}")
+    dev_obj = _detect_device(device)
+    dev_desc = get_device_description(dev_obj)
+    click.echo(f"Starting Von Decision Server [{backend} on {dev_desc}] on http://{host}:{port}")
     uvicorn.run("von.server:app", host=host, port=port, reload=reload)
 
 
