@@ -41,6 +41,8 @@ def decide(
 ) -> ChoiceAnswer:
     """Make a fast discrete decision among options."""
     if isinstance(choices, list):
+        if len(choices) != len(set(choices)):
+            raise ValueError(f"Duplicate choices found in options list: {choices}")
         criteria = {c: None for c in choices}
     else:
         criteria = choices
