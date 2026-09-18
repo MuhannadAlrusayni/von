@@ -1,4 +1,4 @@
-"""Von Engine orchestrator with pluggable backends (Needle 3, Laya 421M)."""
+"""Von Engine orchestrator with pluggable backends (Needle 3, Laya 421M, and Berta Encoders)."""
 
 import os
 import threading
@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from .backends import (
     BaseBackend,
+    BertaBackend,
     LayaBackend,
     NeedleBackend,
 )
@@ -33,9 +34,15 @@ class VonEngine:
             self.backend: BaseBackend = NeedleBackend()
         elif self.backend_name in ("laya", "laya-421m", "convaiinnovations/laya"):
             self.backend = LayaBackend()
+        elif self.backend_name in ("berta", "berta-v3", "deberta", "deberta-v3"):
+            self.backend = BertaBackend(variant="deberta-v3")
+        elif self.backend_name in ("berta-modern", "modernbert", "modernbert-nli"):
+            self.backend = BertaBackend(variant="modernbert")
+        elif self.backend_name in ("berta-xxl", "deberta-xxl", "deberta-v2-xxlarge"):
+            self.backend = BertaBackend(variant="deberta-xxl")
         else:
             raise ValueError(
-                f"Unknown backend '{self.backend_name}'. Available: needle, laya"
+                f"Unknown backend '{self.backend_name}'. Available: needle, laya, berta-v3, berta-modern, berta-xxl"
             )
 
     @classmethod
@@ -48,7 +55,7 @@ class VonEngine:
 
     @classmethod
     def set_backend(cls, backend: str):
-        """Switch active engine backend ('needle', 'laya')."""
+        """Switch active engine backend ('needle', 'laya', 'berta-v3', 'berta-modern', 'berta-xxl')."""
         with cls._lock:
             cls._instance = cls(backend_name=backend)
 

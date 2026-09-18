@@ -21,3 +21,19 @@ def test_laya_backend():
     assert res.choice == "billing"
     assert "billing" in res.probabilities
     assert res.confidence > 0.0
+
+
+def test_berta_modern_backend():
+    von.set_backend("berta-modern")
+    res = von.decide("Server CPU temperature reached 105 degrees Celsius", choices=["hardware_alert", "billing"])
+    assert res.choice == "hardware_alert"
+    assert "hardware_alert" in res.probabilities
+    assert res.confidence > 0.0
+
+
+def test_berta_v3_backend():
+    von.set_backend("berta-v3")
+    res = von.decide("Customer wants to reset forgotten account password", choices=["account_access", "billing"])
+    assert res.choice == "account_access"
+    assert "account_access" in res.probabilities
+    assert res.confidence > 0.0

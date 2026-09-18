@@ -51,11 +51,14 @@ def run_profiler(data_path: str = "benchmarks/data/authored144.jsonl", limit: in
         rows = rows[:limit]
 
     print(f"\n==========================================================================")
-    print(f"  VON MULTI-BACKEND BENCHMARK PROFILE ({len(rows)} rows from authored144)")
+    print(f"  VON NATIVE BERTA vs LAYA vs NEEDLE BENCHMARK PROFILE ({len(rows)} rows)")
     print(f"==========================================================================\n")
 
     backends = [
-        ("needle", "Needle 3 (14MB)", 14.0, "14 MB", "28 MB RAM (CPU)"),
+        ("needle", "Needle 3 (SAN)", 14.0, "14 MB", "28 MB RAM (CPU)"),
+        ("berta-modern", "ModernBERT-Large (NLI)", 790.0, "790 MB", "~1.2 GB RAM (CPU)"),
+        ("berta-v3", "DeBERTa-v3-Large (ANLI)", 870.0, "870 MB", "~1.5 GB RAM (CPU)"),
+        ("berta-xxl", "DeBERTa-v2-XXL (1.5B)", 3000.0, "3.0 GB", "~4.5 GB RAM (CPU)"),
         ("laya", "Laya 421M (RLCD)", 840.0, "840 MB", "~1.1 GB RAM (CPU)"),
     ]
 
@@ -71,7 +74,7 @@ def run_profiler(data_path: str = "benchmarks/data/authored144.jsonl", limit: in
             print(f"  -> Failed to profile {b_label}: {e}\n")
 
     print(f"=================================================================================================")
-    print(f"  FINAL COMPARATIVE LADDER")
+    print(f"  FINAL COMPARATIVE LADDER (authored144 Suite)")
     print(f"=================================================================================================")
     print(f"| Backend / Model            | Size      | Hardware / Env     | Balanced Acc | Acc/Weight (%/MB) | Latency / Call |")
     print(f"| :------------------------- | :-------- | :----------------- | :----------- | :---------------- | :------------- |")

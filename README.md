@@ -38,7 +38,13 @@ import von
 # 1. Needle 3 (Default): 14MB footprint, ~28MB RAM, pure CPU reflex (<15ms)
 von.set_backend("needle")
 
-# 2. Laya-421M: Full RLCD decision model by Convai Innovations (70.3% accuracy, ~390ms)
+# 2. DeBERTa-v3-Large (ANLI): 435M SOTA NLI bidirectional encoder (77.4% accuracy)
+von.set_backend("berta-v3")
+
+# 3. ModernBERT-Large (NLI): 395M modern FlashAttention encoder (75.5% accuracy, ~900ms)
+von.set_backend("berta-modern")
+
+# 4. Laya-421M: Full RLCD decision model by Convai Innovations (70.3% accuracy, ~390ms)
 von.set_backend("laya")
 ```
 
@@ -47,6 +53,8 @@ von.set_backend("laya")
 | Backend / Model | Weights | Hardware / Env | Balanced Acc | Acc / Weight (%/MB) | Latency / Call | VRAM Needed |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **52.6%** | **3.757% / MB** | **~38 ms** (embed) | **0 MB** |
+| **Von (`berta-v3`)** | **870 MB** | **CPU (In-Process)** | **77.4%** 🚀 | **0.089% / MB** | **~4100 ms (CPU)** | **0 MB** |
+| **Von (`berta-modern`)** | **790 MB** | **CPU (In-Process)** | **75.5%** | **0.096% / MB** | **~915 ms (CPU)** | **0 MB** |
 | **Von (`laya`)** | **840 MB** | **CPU (In-Process)** | **70.3%** | **0.084% / MB** | **~390 ms** | **0 MB** |
 | Qwen3-0.6B (OpenJev) | 639 MB | GPU / WebGPU | 44.0% | 0.069% / MB | ~35 ms | 1.2 GB |
 | MiniCPM5-2B (OpenJev) | 1.56 GB | GPU / WebGPU | 68.6% | 0.044% / MB | ~40 ms | 3.5 GB |
