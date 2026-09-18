@@ -63,11 +63,17 @@ def _detect_device(device_str: Optional[str] = None) -> torch.device:
     if d_str != "auto":
         return torch.device(d_str)
 
-    # Auto-detection: CUDA/ROCm -> Apple Silicon MPS -> CPU
+    # Auto-detection: CUDA/ROCm -> Apple Silicon MPS -> Windows DirectML (AMD/Intel) -> CPU
     if torch.cuda.is_available():
         return torch.device("cuda")
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return torch.device("mps")
+    try:
+        import torch_directml
+        if torch_directml.is_available():
+            return torch_directml.device()
+    except Exception:
+        pass
     return torch.device("cpu")
 
 
