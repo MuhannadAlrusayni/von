@@ -58,6 +58,7 @@ def run_profiler(data_path: str = "benchmarks/data/authored144.jsonl", limit: in
         ("needle", "Needle 3 (14MB)", 14.0, "14 MB", "28 MB RAM (CPU)"),
         ("modernbert", "ModernBERT-151M", 290.0, "290 MB", "~450 MB RAM (CPU)"),
         ("qwen0.5b", "Qwen2.5-0.5B (PCD)", 942.0, "942 MB", "~1.2 GB RAM (CPU)"),
+        ("uno", "K2-Horizon-0.9B-Uno", 2270.0, "2.27 GB", "~2.5 GB RAM (CPU)"),
     ]
 
     results = []

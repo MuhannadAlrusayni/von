@@ -27,3 +27,10 @@ def test_qwen_backend():
     res = von.decide("Server CPU temperature is 105 degrees Celsius", choices=["hardware_alert", "billing"])
     assert res.choice == "hardware_alert"
     assert "hardware_alert" in res.probabilities
+
+
+def test_uno_backend():
+    von.set_backend("uno")
+    res = von.decide("Payment gateway timeout error on invoice #902", choices=["billing", "technical"])
+    assert res.choice in ("billing", "technical")
+    assert "billing" in res.probabilities
