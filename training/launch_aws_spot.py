@@ -157,7 +157,48 @@ def launch():
             break
 
     if not instance_id:
-        raise RuntimeError("Could not find spot capacity in any availability zone!")
+        print("\nAll Spot capacity temporarily exhausted in us-west-2.")
+        print("Falling back to On-Demand g5.xlarge ($1.006/hr, ~$1.50 run cost, budget cap $10)...")
+        for subnet_id, az_name in SUBNETS:
+            print(f"  -> Trying On-Demand g5.xlarge in {az_name} ({subnet_id})...")
+            launch_args = [
+                "ec2", "run-instances",
+                "--image-id", AMI_ID,
+                "--instance-type", "g5.xlarge",
+                "--subnet-id", subnet_id,
+                "--iam-instance-profile", f"Name={IAM_PROFILE}",
+                "--instance-initiated-shutdown-behavior", "terminate",
+                "--block-device-mappings", json.dumps([
+                    {
+                        "DeviceName": "/dev/sda1",
+                        "Ebs": {
+                            "VolumeSize": 120,
+                            "VolumeType": "gp3",
+                            "DeleteOnTermination": True
+                        }
+                    }
+                ]),
+                "--tag-specifications", json.dumps([
+                    {
+                        "ResourceType": "instance",
+                        "Tags": [{"Key": "Name", "Value": "von-training-ondemand-g5.xlarge"}]
+                    }
+                ]),
+                "--user-data", user_data_b64,
+            ]
+            try:
+                res = run_aws(launch_args)
+                instances = res.get("Instances", [])
+                if instances:
+                    instance_id = instances[0]["InstanceId"]
+                    chosen_type = "g5.xlarge (On-Demand)"
+                    print(f"\n-> SUCCESS! Launched On-Demand g5.xlarge in {az_name}: {instance_id}")
+                    break
+            except Exception as e:
+                print(f"     Failed in {az_name}: {e}")
+
+    if not instance_id:
+        raise RuntimeError("Could not find compute capacity in any availability zone!")
 
     print("\nWaiting for instance to enter 'running' state...")
     while True:
