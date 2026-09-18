@@ -22,6 +22,12 @@ def _get_default_client() -> VonClient:
     return _default_client
 
 
+def set_backend(backend: str):
+    """Set the underlying decision backend ('needle', 'modernbert', 'qwen0.5b')."""
+    from .engine import VonEngine
+    VonEngine.set_backend(backend)
+
+
 def system_one(
     state: Any,
     questions: Dict[str, Union[Question, Dict[str, Any]]],

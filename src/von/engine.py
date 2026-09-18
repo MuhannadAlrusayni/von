@@ -1,4 +1,4 @@
-"""The core System One execution engine powered by Needle."""
+"""The core System One execution engine powered by Needle (with pluggable backend support)."""
 
 import json
 import math
@@ -95,22 +95,30 @@ def _resolve_state_path(state: Any, path: str) -> Optional[Any]:
 
 
 class VonEngine:
-    """System One inference engine wrapping Needle 3."""
+    """System One inference engine with pluggable backends (Needle 3, ModernBERT, Qwen)."""
 
     _instance: Optional["VonEngine"] = None
     _lock: threading.Lock = threading.Lock()
 
-    def __init__(self, generation: int = 3):
+    def __init__(self, generation: int = 3, backend: str = "needle"):
         self._generation = generation
+        self._backend = backend
         self._needle: Optional[needle.Needle] = None
         self._cache_lock = threading.Lock()
 
     @classmethod
-    def get_instance(cls) -> "VonEngine":
+    def get_instance(cls, backend: Optional[str] = None) -> "VonEngine":
         with cls._lock:
             if cls._instance is None:
-                cls._instance = cls()
+                b = backend or os.environ.get("VON_BACKEND", "needle")
+                cls._instance = cls(backend=b)
             return cls._instance
+
+    @classmethod
+    def set_backend(cls, backend: str):
+        """Switch active engine backend ('needle', 'modernbert', 'qwen0.5b')."""
+        with cls._lock:
+            cls._instance = cls(backend=backend)
 
     def _get_needle(self) -> needle.Needle:
         with self._cache_lock:
