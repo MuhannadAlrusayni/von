@@ -1,4 +1,4 @@
-"""Multi-backend comparative profiler on OpenJev benchmark."""
+"""Comparative benchmark profiler: Von (ModernBERT) vs Laya vs OpenJev vs TypeSafe Jev."""
 
 import argparse
 import json
@@ -51,14 +51,11 @@ def run_profiler(data_path: str = "benchmarks/data/authored144.jsonl", limit: in
         rows = rows[:limit]
 
     print(f"\n==========================================================================")
-    print(f"  VON NATIVE BERTA vs LAYA vs NEEDLE BENCHMARK PROFILE ({len(rows)} rows)")
+    print(f"  VON vs LAYA vs JEV BENCHMARK PROFILE ({len(rows)} rows from authored144)")
     print(f"==========================================================================\n")
 
     backends = [
-        ("needle", "Needle 3 (SAN)", 14.0, "14 MB", "28 MB RAM (CPU)"),
-        ("berta-modern", "ModernBERT-Large (NLI)", 790.0, "790 MB", "~1.2 GB RAM (CPU)"),
-        ("berta-v3", "DeBERTa-v3-Large (ANLI)", 870.0, "870 MB", "~1.5 GB RAM (CPU)"),
-        ("berta-xxl", "DeBERTa-v2-XXL (1.5B)", 3000.0, "3.0 GB", "~4.5 GB RAM (CPU)"),
+        ("modernbert", "Von (ModernBERT-Large)", 790.0, "790 MB", "~1.2 GB RAM (CPU)"),
         ("laya", "Laya 421M (RLCD)", 840.0, "840 MB", "~1.1 GB RAM (CPU)"),
     ]
 
@@ -80,9 +77,7 @@ def run_profiler(data_path: str = "benchmarks/data/authored144.jsonl", limit: in
     print(f"| :------------------------- | :-------- | :----------------- | :----------- | :---------------- | :------------- |")
     for b_label, size, hw, raw_acc, bal_acc, eff, avg_lat in results:
         print(f"| **{b_label:26}** | {size:9} | {hw:18} | **{bal_acc*100:5.1f}%**     | **{eff:6.3f}% / MB**    | **{avg_lat:6.1f} ms**     |")
-    print(f"| Qwen3-0.6B (OpenJev)       | 639 MB    | GPU / WebGPU       | 44.0%        | 0.069% / MB       | ~35 ms         |")
-    print(f"| MiniCPM5-2B (OpenJev)      | 1.56 GB   | GPU / WebGPU       | 68.6%        | 0.044% / MB       | ~40 ms         |")
-    print(f"| Qwen3.5-4B (OpenJev)       | 3.01 GB   | RTX 3090 (24GB)    | 81.3%        | 0.027% / MB       | ~48 ms         |")
+    print(f"| OpenJev (Qwen3.5-4B)       | 3.01 GB   | RTX 3090 (24GB)    | 81.3%        | 0.027% / MB       | ~48 ms         |")
     print(f"| Published Jev (TypeSafe)   | ~8–16 GB* | Closed Cloud API   | 88.3%        | ~0.005–0.011%/MB  | 100-300 ms     |")
     print(f"=================================================================================================")
     print(f"* Speculated Jev size: ~8B–14B MoE causal backbone (~8–16 GB) based on Archer Hume reverse-engineering.\n")
