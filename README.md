@@ -38,10 +38,13 @@ import von
 # 1. Needle 3 (Default): 14MB footprint, ~28MB RAM, pure CPU reflex (<15ms)
 von.set_backend("needle")
 
-# 2. ModernBERT-151M: GLiClass candidate slot scoring with Brier calibration (~35ms)
+# 2. Laya-421M: Full RLCD decision model by Convai Innovations (70.3% accuracy)
+von.set_backend("laya")
+
+# 3. ModernBERT-151M: GLiClass candidate slot scoring with Brier calibration (~35ms)
 von.set_backend("modernbert")
 
-# 3. Qwen 0.5B (PCD): Parallel Constrained Decoding reading logits directly
+# 4. Qwen 0.5B (PCD): Parallel Constrained Decoding reading logits directly
 von.set_backend("qwen0.5b")
 ```
 
@@ -50,6 +53,7 @@ von.set_backend("qwen0.5b")
 | Backend / Model | Weights | Hardware / Env | Balanced Acc | Acc / Weight (%/MB) | Latency / Call | VRAM Needed |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **52.6%** | **3.757% / MB** 🏆 | **~38 ms** (embed) | **0 MB** |
+| **Von (`laya`)** | **840 MB** | **CPU (In-Process)** | **70.3%** | **0.084% / MB** | **~390 ms** | **0 MB** |
 | **Von (`modernbert`)** | **290 MB** | **CPU (In-Process)** | **45.7%** | **0.158% / MB** | **~35 ms** | **0 MB** |
 | **Von (`qwen0.5b`)** | **942 MB** | **CPU (In-Process)** | **64.4%** | **0.068% / MB** | **~650 ms (CPU)** | **0 MB** |
 | Qwen3-0.6B (OpenJev) | 639 MB | GPU / WebGPU | 44.0% | 0.069% / MB | ~35 ms | 1.2 GB |
@@ -271,9 +275,10 @@ See the [`examples/`](./examples/) directory for full production patterns:
 
 Von builds upon and recognizes foundational open-source and research contributions:
 
-1. **DeepMostInnovations & The Original Open-Source Architecture:**
+1. **DeepMostInnovations & Convai Innovations (Laya):**
    - Precedent for non-autoregressive decision models using reinforcement learning on sequence embeddings for turn-by-turn trajectory and probability prediction.
    - Original Papers: [arXiv:2503.23303](https://arxiv.org/abs/2503.23303) and [arXiv:2510.01237](https://arxiv.org/abs/2510.01237).
+   - Laya Model & Package: [`convaiinnovations/laya`](https://huggingface.co/convaiinnovations/laya) and [`laya` on PyPI](https://pypi.org/project/laya/).
    - Hugging Face Model: [`DeepMostInnovations/sales-conversion-model-reinf-learning`](https://huggingface.co/DeepMostInnovations/sales-conversion-model-reinf-learning) and dataset [`DeepMostInnovations/saas-sales-conversations`](https://huggingface.co/datasets/DeepMostInnovations/saas-sales-conversations).
    - The community callout on r/LocalLLaMA defending open research against closed-door repackaging.
 

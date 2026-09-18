@@ -337,6 +337,22 @@ wheels = [
 ]
 
 [[package]]
+name = "laya"
+version = "0.1.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "numpy" },
+    { name = "safetensors" },
+    { name = "torch" },
+    { name = "transformers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/84/b1/e6de034c2103bc13d21c365db136b1122dfd7129ee2d3d39092da0076ef6/laya-0.1.6.tar.gz", hash = "sha256:e9278afbb0c2da4864d3e0d629edc993691ee9d4126a636f78eca50ae3f2118d", size = 22505, upload-time = "2026-09-18T08:03:26.927Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/34/946db27a4c22bf2aa6b0fb5d158ef9927387e6bcf3254457cffe05af28e6/laya-0.1.6-py3-none-any.whl", hash = "sha256:64eda9dcc9cf24a23423f4aff334411dbf8a37f5adce6fa950322c3f2717e3ca", size = 20494, upload-time = "2026-09-18T08:03:25.415Z" },
+]
+
+[[package]]
 name = "markdown-it-py"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1392,6 +1408,7 @@ dependencies = [
 [package.optional-dependencies]
 all = [
     { name = "gliclass" },
+    { name = "laya" },
     { name = "onnxruntime" },
     { name = "torch" },
     { name = "transformers" },
@@ -1404,6 +1421,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "gliclass", marker = "extra == 'all'", specifier = ">=0.1.20" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "laya", marker = "extra == 'all'", specifier = ">=0.1.6" },
     { name = "onnxruntime", marker = "extra == 'all'", specifier = ">=1.17.0" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pytest", specifier = ">=9.1.1" },

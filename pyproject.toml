@@ -25,6 +25,7 @@ all = [
     "transformers>=4.40.0",
     "gliclass>=0.1.20",
     "onnxruntime>=1.17.0",
+    "laya>=0.1.6",
 ]
 
 
