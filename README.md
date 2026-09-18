@@ -46,7 +46,7 @@ von.set_backend("laya")
 
 | Backend / Model | Weights | Hardware / Env | Balanced Acc | Acc / Weight (%/MB) | Latency / Call | VRAM Needed |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **52.6%** | **3.757% / MB** 🏆 | **~38 ms** (embed) | **0 MB** |
+| **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **52.6%** | **3.757% / MB** | **~38 ms** (embed) | **0 MB** |
 | **Von (`laya`)** | **840 MB** | **CPU (In-Process)** | **70.3%** | **0.084% / MB** | **~390 ms** | **0 MB** |
 | Qwen3-0.6B (OpenJev) | 639 MB | GPU / WebGPU | 44.0% | 0.069% / MB | ~35 ms | 1.2 GB |
 | MiniCPM5-2B (OpenJev) | 1.56 GB | GPU / WebGPU | 68.6% | 0.044% / MB | ~40 ms | 3.5 GB |
