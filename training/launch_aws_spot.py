@@ -1,0 +1,147 @@
+"""Automated AWS Spot Training Launcher with guaranteed self-termination.
+
+Launches a 4x GPU Spot instance (g5.12xlarge), executes multi-GPU DDP training,
+uploads the trained checkpoint to S3 (s3://model-weight/von-modernbert-rlcd/),
+and terminates the instance immediately.
+"""
+
+import base64
+import json
+import os
+import subprocess
+import sys
+import time
+
+
+AWS_CLI = "/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"
+REGION = "us-west-2"
+SUBNET_ID = "subnet-b75369ec"  # us-west-2c (lowest spot price)
+AMI_ID = "ami-0e24e0019a12c5b13"  # Deep Learning Base AMI with CUDA
+INSTANCE_TYPE = "g5.12xlarge"  # 4x NVIDIA A10G (96GB VRAM)
+IAM_PROFILE = "AmazonSSMRoleForInstancesQuickSetup"
+S3_TARGET = "s3://model-weight/von-modernbert-rlcd"
+
+
+USER_DATA_SCRIPT = """#!/bin/bash
+set -e
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+# HARD RUNAWAY WATCHDOG: Self-terminate in 150 minutes max under any circumstances
+shutdown -h +150 &
+
+echo "=== [VON CLOUD TRAINING START] ==="
+export DEBIAN_FRONTEND=noninteractive
+
+# Install uv package manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="/root/.local/bin:$PATH"
+
+# Clone Von repository
+git clone https://github.com/wfzyx/von.git /opt/von
+cd /opt/von
+
+# Setup environment
+uv venv
+source .venv/bin/activate
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+uv pip install transformers datasets scipy sentencepiece tiktoken accelerate
+
+# Build 250k training corpus
+python training/prepare_dataset.py --max_train 250000 --val_samples 3000 --output_dir data
+
+# Detect GPUs and train with DDP
+NUM_GPUS=$(nvidia-smi -L | wc -l)
+echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training..."
+
+torchrun --nproc_per_node=$NUM_GPUS training/train_rlcd.py \\
+    --train_data data/train.jsonl \\
+    --val_data data/val.jsonl \\
+    --epochs 3 \\
+    --batch_size 16 \\
+    --output_dir checkpoints/von-modernbert-rlcd
+
+# Upload trained checkpoint to S3
+echo "Uploading checkpoint to S3: s3://model-weight/von-modernbert-rlcd/ ..."
+aws s3 cp --recursive checkpoints/von-modernbert-rlcd/ s3://model-weight/von-modernbert-rlcd/
+
+echo "=== [VON TRAINING COMPLETE - TERMINATING INSTANCE] ==="
+shutdown -h now
+"""
+
+
+def run_aws(cmd: list) -> dict:
+    full_cmd = [AWS_CLI] + cmd + ["--region", REGION, "--output", "json"]
+    res = subprocess.run(full_cmd, capture_output=True, text=True)
+    if res.returncode != 0:
+        raise RuntimeError(f"AWS CLI error: {res.stderr.strip()}")
+    if not res.stdout.strip():
+        return {}
+    return json.loads(res.stdout)
+
+
+def launch():
+    print("================================================================")
+    print("  VON AWS SPOT TRAINING LAUNCHER")
+    print(f"  Instance Type:    {INSTANCE_TYPE} (4x NVIDIA A10G 24GB)")
+    print(f"  Region / Subnet:  {REGION} / {SUBNET_ID}")
+    print(f"  Safety Watchdog:  150-minute hard shutdown & auto-terminate")
+    print(f"  Target S3 Prefix: {S3_TARGET}")
+    print("================================================================\n")
+
+    user_data_b64 = base64.b64encode(USER_DATA_SCRIPT.encode("utf-8")).decode("utf-8")
+
+    launch_args = [
+        "ec2", "run-instances",
+        "--image-id", AMI_ID,
+        "--instance-type", INSTANCE_TYPE,
+        "--subnet-id", SUBNET_ID,
+        "--iam-instance-profile", f"Name={IAM_PROFILE}",
+        "--instance-initiated-shutdown-behavior", "terminate",
+        "--instance-market-options", json.dumps({"MarketType": "spot", "SpotOptions": {"SpotInstanceType": "one-time"}}),
+        "--block-device-mappings", json.dumps([
+            {
+                "DeviceName": "/dev/sda1",
+                "Ebs": {
+                    "VolumeSize": 120,
+                    "VolumeType": "gp3",
+                    "DeleteOnTermination": True
+                }
+            }
+        ]),
+        "--tag-specifications", json.dumps([
+            {
+                "ResourceType": "instance",
+                "Tags": [{"Key": "Name", "Value": "von-modernbert-training-spot"}]
+            }
+        ]),
+        "--user-data", user_data_b64,
+    ]
+
+    print("Submitting Spot RunInstances request...")
+    res = run_aws(launch_args)
+    instances = res.get("Instances", [])
+    if not instances:
+        raise RuntimeError(f"No instance returned: {res}")
+
+    instance_id = instances[0]["InstanceId"]
+    print(f"-> Successfully requested Spot instance: {instance_id}")
+
+    print("\nWaiting for instance to enter 'running' state...")
+    while True:
+        desc = run_aws(["ec2", "describe-instances", "--instance-ids", instance_id])
+        state = desc["Reservations"][0]["Instances"][0]["State"]["Name"]
+        print(f"  -> Instance {instance_id} status: {state}")
+        if state == "running":
+            break
+        if state in ("terminated", "shutting-down"):
+            raise RuntimeError("Instance terminated prematurely!")
+        time.sleep(15)
+
+    print("\nSpot instance is RUNNING! Distributed training has started in background.")
+    print(f"The instance will automatically upload checkpoints to {S3_TARGET} and terminate.\n")
+    print("To monitor progress or download when done, run:")
+    print(f'  "{AWS_CLI}" s3 ls {S3_TARGET}/')
+
+
+if __name__ == "__main__":
+    launch()

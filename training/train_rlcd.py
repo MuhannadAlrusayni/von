@@ -1,11 +1,11 @@
 """Train Von's ModernBERT native decision model with RLCD calibration.
 
-Features:
-- Backbone: ModernBERT-Large
-- Loss: Cross-Entropy + Brier Score Calibration
-- Automatic Post-Hoc Temperature Optimization
-- Mixed Precision (bfloat16 / float16)
-- Checkpoint export ready for Von / Hugging Face
+Supports:
+- Multi-GPU Distributed Data Parallel (DDP) via torchrun
+- Single-GPU & CPU fallback
+- Cross-Entropy + Brier Score Calibration Loss
+- Post-Hoc Temperature Scaling Optimization
+- FP16/BF16 AMP
 """
 
 import argparse
@@ -18,6 +18,7 @@ from typing import Dict, List, Tuple
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_cosine_schedule_with_warmup
 
 
@@ -43,15 +44,12 @@ def collate_fn(batch: List[dict], tokenizer, max_length: int = 512):
     labels = []
     option_counts = []
 
-    label_to_idx = {"supported": 0, "contradicted": 1, "insufficient": 2}
-
     for item in batch:
         state = item["state"]
         q = item["question"]
         opts = item["options"]
         target = item["label"]
 
-        # Track target index within options list
         opt_ids = [opt["id"] for opt in opts]
         if target in opt_ids:
             target_idx = opt_ids.index(target)
@@ -88,7 +86,6 @@ def compute_rlcd_loss(
     option_counts: List[int],
     brier_weight: float = 0.5,
 ) -> Tuple[torch.Tensor, torch.Tensor, float]:
-    """Calculate Cross-Entropy + Brier calibration loss over candidate option pools."""
     offset = 0
     ce_losses = []
     brier_losses = []
@@ -96,17 +93,17 @@ def compute_rlcd_loss(
     total = len(labels)
 
     for i, count in enumerate(option_counts):
-        scores = entail_scores[offset : offset + count]  # shape: (K,)
+        scores = entail_scores[offset : offset + count]
         target_idx = labels[i].item()
 
         probs = torch.softmax(scores, dim=-1)
 
-        # 1. Cross Entropy Loss: -log(p_target)
+        # Cross Entropy
         p_target = torch.clamp(probs[target_idx], min=1e-7, max=1.0)
         ce_loss = -torch.log(p_target)
         ce_losses.append(ce_loss)
 
-        # 2. Brier Score Loss: sum((p_k - y_k)^2)
+        # Brier Score
         one_hot = torch.zeros_like(probs)
         one_hot[target_idx] = 1.0
         brier = torch.sum((probs - one_hot) ** 2)
@@ -126,7 +123,6 @@ def compute_rlcd_loss(
 
 
 def fit_temperature(all_scores: List[torch.Tensor], all_labels: List[int]) -> float:
-    """Optimize scalar temperature T on validation split to minimize Negative Log Likelihood."""
     from scipy.optimize import minimize_scalar
 
     def nll_eval(temp_val: float) -> float:
@@ -153,54 +149,87 @@ def train(
     brier_weight: float = 0.5,
     max_length: int = 512,
 ):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    is_ddp = "RANK" in os.environ
+    if is_ddp:
+        torch.distributed.init_process_group(backend="nccl")
+        rank = int(os.environ["RANK"])
+        local_rank = int(os.environ["LOCAL_RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        device = torch.device(f"cuda:{local_rank}")
+        torch.cuda.set_device(device)
+    else:
+        rank = 0
+        local_rank = 0
+        world_size = 1
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    print(f"Loading tokenizer & model: {model_id}...")
+    is_main = rank == 0
+
+    if is_main:
+        print(f"Device: {device} (World Size: {world_size}, DDP: {is_ddp})")
+        print(f"Loading tokenizer & model: {model_id}...")
+
     tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForSequenceClassification.from_pretrained(model_id).to(device)
+    raw_model = AutoModelForSequenceClassification.from_pretrained(model_id).to(device)
 
-    # Detect entailment index in id2label
     entail_idx = 0
-    id2label = getattr(model.config, "id2label", {})
+    id2label = getattr(raw_model.config, "id2label", {})
     for idx, lbl in id2label.items():
         if "entail" in lbl.lower():
             entail_idx = int(idx)
             break
-    print(f"Detected entailment class index: {entail_idx} ({id2label.get(entail_idx)})")
+
+    if is_ddp:
+        model = nn.parallel.DistributedDataParallel(
+            raw_model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False
+        )
+    else:
+        model = raw_model
 
     train_ds = DecisionDataset(train_path)
     val_ds = DecisionDataset(val_path)
 
+    train_sampler = DistributedSampler(train_ds, num_replicas=world_size, rank=rank, shuffle=True) if is_ddp else None
     train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=(train_sampler is None),
+        sampler=train_sampler,
         collate_fn=lambda b: collate_fn(b, tokenizer, max_length=max_length),
+        num_workers=2,
+        pin_memory=(device.type == "cuda"),
     )
+
     val_loader = DataLoader(
         val_ds,
         batch_size=batch_size,
         shuffle=False,
         collate_fn=lambda b: collate_fn(b, tokenizer, max_length=max_length),
+        num_workers=2,
+        pin_memory=(device.type == "cuda"),
     )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
-    total_steps = len(train_loader) * epochs
+    total_steps = (len(train_loader) * epochs)
     warmup_steps = int(total_steps * 0.1)
     scheduler = get_cosine_schedule_with_warmup(optimizer, warmup_steps, total_steps)
 
-    scaler = torch.cuda.amp.GradScaler(enabled=(device.type == "cuda"))
+    scaler = torch.amp.GradScaler("cuda", enabled=(device.type == "cuda"))
 
-    print(f"\nStarting training:")
-    print(f"  -> Total Train Samples: {len(train_ds)}")
-    print(f"  -> Validation Samples:  {len(val_ds)}")
-    print(f"  -> Epochs:              {epochs}")
-    print(f"  -> Effective Steps:     {total_steps}\n")
+    if is_main:
+        print(f"\nStarting training:")
+        print(f"  -> Train Samples:   {len(train_ds):,}")
+        print(f"  -> Val Samples:     {len(val_ds):,}")
+        print(f"  -> Batch Size:      {batch_size} (Global: {batch_size * world_size})")
+        print(f"  -> Epochs:          {epochs}")
+        print(f"  -> Total Steps:     {total_steps:,}\n")
 
     best_val_acc = 0.0
 
     for epoch in range(1, epochs + 1):
+        if is_ddp and train_sampler:
+            train_sampler.set_epoch(epoch)
+
         model.train()
         epoch_loss = 0.0
         epoch_acc = 0.0
@@ -214,7 +243,7 @@ def train(
             labels = batch["labels"].to(device)
             option_counts = batch["option_counts"]
 
-            with torch.cuda.amp.autocast(enabled=(device.type == "cuda")):
+            with torch.amp.autocast("cuda", enabled=(device.type == "cuda")):
                 logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
                 entail_scores = logits[:, entail_idx]
                 loss, ce_loss, acc = compute_rlcd_loss(
@@ -231,7 +260,7 @@ def train(
             epoch_loss += loss.item()
             epoch_acc += acc
 
-            if (step + 1) % 50 == 0 or (step + 1) == len(train_loader):
+            if is_main and ((step + 1) % 100 == 0 or (step + 1) == len(train_loader)):
                 elapsed = time.time() - t0
                 print(
                     f"Epoch [{epoch}/{epochs}] Step [{step+1}/{len(train_loader)}] "
@@ -239,66 +268,73 @@ def train(
                     f"Elapsed: {elapsed:.1f}s"
                 )
 
-        # Validation loop
-        model.eval()
-        val_loss = 0.0
-        val_acc = 0.0
-        val_scores_list = []
-        val_labels_list = []
+        # Validation (rank 0 evaluates)
+        if is_main:
+            model.eval()
+            val_loss = 0.0
+            val_acc = 0.0
+            val_scores_list = []
+            val_labels_list = []
 
-        with torch.no_grad():
-            for batch in val_loader:
-                input_ids = batch["input_ids"].to(device)
-                attention_mask = batch["attention_mask"].to(device)
-                labels = batch["labels"].to(device)
-                option_counts = batch["option_counts"]
+            eval_target = model.module if is_ddp else model
 
-                with torch.cuda.amp.autocast(enabled=(device.type == "cuda")):
-                    logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
-                    entail_scores = logits[:, entail_idx]
-                    loss, _, acc = compute_rlcd_loss(
-                        entail_scores, labels, option_counts, brier_weight=brier_weight
-                    )
+            with torch.no_grad():
+                for batch in val_loader:
+                    input_ids = batch["input_ids"].to(device)
+                    attention_mask = batch["attention_mask"].to(device)
+                    labels = batch["labels"].to(device)
+                    option_counts = batch["option_counts"]
 
-                val_loss += loss.item()
-                val_acc += acc
+                    with torch.amp.autocast("cuda", enabled=(device.type == "cuda")):
+                        logits = eval_target(input_ids=input_ids, attention_mask=attention_mask).logits
+                        entail_scores = logits[:, entail_idx]
+                        loss, _, acc = compute_rlcd_loss(
+                            entail_scores, labels, option_counts, brier_weight=brier_weight
+                        )
 
-                # Collect for temperature fitting
-                offset = 0
-                for i, cnt in enumerate(option_counts):
-                    val_scores_list.append(entail_scores[offset : offset + cnt].cpu())
-                    val_labels_list.append(labels[i].item())
-                    offset += cnt
+                    val_loss += loss.item()
+                    val_acc += acc
 
-        avg_val_loss = val_loss / len(val_loader)
-        avg_val_acc = val_acc / len(val_loader)
-        print(f"\n--- Epoch {epoch} Validation: Loss = {avg_val_loss:.4f}, Accuracy = {avg_val_acc*100:.2f}% ---\n")
+                    offset = 0
+                    for i, cnt in enumerate(option_counts):
+                        val_scores_list.append(entail_scores[offset : offset + cnt].cpu())
+                        val_labels_list.append(labels[i].item())
+                        offset += cnt
 
-        if avg_val_acc > best_val_acc:
-            best_val_acc = avg_val_acc
-            print(f"Saving new best checkpoint to {output_dir}...")
-            os.makedirs(output_dir, exist_ok=True)
-            model.save_pretrained(output_dir)
-            tokenizer.save_pretrained(output_dir)
+            avg_val_loss = val_loss / len(val_loader)
+            avg_val_acc = val_acc / len(val_loader)
+            print(f"\n--- Epoch {epoch} Validation: Loss = {avg_val_loss:.4f}, Accuracy = {avg_val_acc*100:.2f}% ---\n")
 
-    print("\nFitting post-hoc calibration temperature (T)...")
-    opt_temp = fit_temperature(val_scores_list, val_labels_list)
-    print(f"Optimal fitted temperature: T = {opt_temp:.4f}")
+            if avg_val_acc > best_val_acc:
+                best_val_acc = avg_val_acc
+                print(f"Saving new best checkpoint to {output_dir}...")
+                os.makedirs(output_dir, exist_ok=True)
+                eval_target.save_pretrained(output_dir)
+                tokenizer.save_pretrained(output_dir)
 
-    calibration_config = {
-        "base_model": model_id,
-        "temperature": round(opt_temp, 4),
-        "best_val_accuracy": round(best_val_acc, 4),
-        "timestamp": time.time(),
-    }
-    with open(os.path.join(output_dir, "calibration.json"), "w") as f:
-        json.dump(calibration_config, f, indent=2)
+    if is_main:
+        print("\nFitting post-hoc calibration temperature (T)...")
+        opt_temp = fit_temperature(val_scores_list, val_labels_list)
+        print(f"Optimal fitted temperature: T = {opt_temp:.4f}")
 
-    print(f"\nTraining & calibration complete! Model exported to: {output_dir}")
+        calibration_config = {
+            "base_model": model_id,
+            "temperature": round(opt_temp, 4),
+            "best_val_accuracy": round(best_val_acc, 4),
+            "timestamp": time.time(),
+        }
+        with open(os.path.join(output_dir, "calibration.json"), "w") as f:
+            json.dump(calibration_config, f, indent=2)
+
+        print(f"\nTraining & calibration complete! Model exported to: {output_dir}")
+
+    if is_ddp:
+        torch.distributed.barrier()
+        torch.distributed.destroy_process_group()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train Von ModernBERT with RLCD")
+    parser = argparse.ArgumentParser(description="Train Von ModernBERT with RLCD (Multi-GPU DDP)")
     parser.add_argument("--train_data", type=str, default="data/train.jsonl")
     parser.add_argument("--val_data", type=str, default="data/val.jsonl")
     parser.add_argument("--model_id", type=str, default="tasksource/ModernBERT-large-nli")

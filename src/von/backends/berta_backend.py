@@ -22,7 +22,7 @@ from .base import BaseBackend
 
 
 MODEL_REGISTRY = {
-    "modernbert": "tasksource/ModernBERT-large-nli",
+    "modernbert": "checkpoints/von-modernbert-rlcd" if os.path.exists("checkpoints/von-modernbert-rlcd/config.json") else "tasksource/ModernBERT-large-nli",
     "deberta-v3": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli",
     "deberta-xxl": "microsoft/deberta-v2-xxlarge-mnli",
 }
@@ -58,6 +58,18 @@ class BertaBackend(BaseBackend):
                 self._tokenizer = AutoTokenizer.from_pretrained(self.model_id)
                 self._model = AutoModelForSequenceClassification.from_pretrained(self.model_id)
                 self._model.to(self.device).eval()
+
+                # Check for calibration.json if using local checkpoint
+                calib_path = os.path.join(self.model_id, "calibration.json")
+                if os.path.exists(calib_path):
+                    try:
+                        with open(calib_path, "r", encoding="utf-8") as f:
+                            cdata = json.load(f)
+                            self._default_temp = float(cdata.get("temperature", 1.0))
+                    except Exception:
+                        self._default_temp = 1.0
+                else:
+                    self._default_temp = 1.0
 
                 # Detect entailment class index in id2label
                 id2label = getattr(self._model.config, "id2label", {})
