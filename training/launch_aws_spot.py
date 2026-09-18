@@ -15,9 +15,17 @@ import time
 
 AWS_CLI = "/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"
 REGION = "us-west-2"
-SUBNET_ID = "subnet-b75369ec"  # us-west-2c (lowest spot price)
+SUBNETS = [
+    ("subnet-083ba040", "us-west-2a"),
+    ("subnet-070e7461", "us-west-2b"),
+    ("subnet-b75369ec", "us-west-2c"),
+    ("subnet-a663228e", "us-west-2d"),
+]
 AMI_ID = "ami-0e24e0019a12c5b13"  # Deep Learning Base AMI with CUDA
-INSTANCE_TYPE = "g5.12xlarge"  # 4x NVIDIA A10G (96GB VRAM)
+CANDIDATE_TYPES = [
+    ("g4dn.12xlarge", "4x NVIDIA T4 (64GB VRAM, Spot ~$1.52/hr)"),
+    ("g5.xlarge", "1x NVIDIA A10G (24GB VRAM, Spot ~$0.52/hr)"),
+]
 IAM_PROFILE = "AmazonSSMRoleForInstancesQuickSetup"
 S3_TARGET = "s3://model-weight/von-modernbert-rlcd"
 
@@ -82,49 +90,64 @@ def run_aws(cmd: list) -> dict:
 def launch():
     print("================================================================")
     print("  VON AWS SPOT TRAINING LAUNCHER")
-    print(f"  Instance Type:    {INSTANCE_TYPE} (4x NVIDIA A10G 24GB)")
-    print(f"  Region / Subnet:  {REGION} / {SUBNET_ID}")
+    print("  Cluster Targets:  4x GPU (g4dn.12xlarge) / 1x GPU (g5.xlarge)")
+    print(f"  Region:           {REGION}")
     print(f"  Safety Watchdog:  150-minute hard shutdown & auto-terminate")
     print(f"  Target S3 Prefix: {S3_TARGET}")
     print("================================================================\n")
 
     user_data_b64 = base64.b64encode(USER_DATA_SCRIPT.encode("utf-8")).decode("utf-8")
 
-    launch_args = [
-        "ec2", "run-instances",
-        "--image-id", AMI_ID,
-        "--instance-type", INSTANCE_TYPE,
-        "--subnet-id", SUBNET_ID,
-        "--iam-instance-profile", f"Name={IAM_PROFILE}",
-        "--instance-initiated-shutdown-behavior", "terminate",
-        "--instance-market-options", json.dumps({"MarketType": "spot", "SpotOptions": {"SpotInstanceType": "one-time"}}),
-        "--block-device-mappings", json.dumps([
-            {
-                "DeviceName": "/dev/sda1",
-                "Ebs": {
-                    "VolumeSize": 120,
-                    "VolumeType": "gp3",
-                    "DeleteOnTermination": True
-                }
-            }
-        ]),
-        "--tag-specifications", json.dumps([
-            {
-                "ResourceType": "instance",
-                "Tags": [{"Key": "Name", "Value": "von-modernbert-training-spot"}]
-            }
-        ]),
-        "--user-data", user_data_b64,
-    ]
+    instance_id = None
+    chosen_type = None
 
-    print("Submitting Spot RunInstances request...")
-    res = run_aws(launch_args)
-    instances = res.get("Instances", [])
-    if not instances:
-        raise RuntimeError(f"No instance returned: {res}")
+    for inst_type, desc_str in CANDIDATE_TYPES:
+        print(f"\nEvaluating instance type: {inst_type} [{desc_str}]...")
+        for subnet_id, az_name in SUBNETS:
+            print(f"  -> Trying {inst_type} in {az_name} ({subnet_id})...")
+            launch_args = [
+                "ec2", "run-instances",
+                "--image-id", AMI_ID,
+                "--instance-type", inst_type,
+                "--subnet-id", subnet_id,
+                "--iam-instance-profile", f"Name={IAM_PROFILE}",
+                "--instance-initiated-shutdown-behavior", "terminate",
+                "--instance-market-options", json.dumps({"MarketType": "spot", "SpotOptions": {"SpotInstanceType": "one-time"}}),
+                "--block-device-mappings", json.dumps([
+                    {
+                        "DeviceName": "/dev/sda1",
+                        "Ebs": {
+                            "VolumeSize": 120,
+                            "VolumeType": "gp3",
+                            "DeleteOnTermination": True
+                        }
+                    }
+                ]),
+                "--tag-specifications", json.dumps([
+                    {
+                        "ResourceType": "instance",
+                        "Tags": [{"Key": "Name", "Value": f"von-training-spot-{inst_type}"}]
+                    }
+                ]),
+                "--user-data", user_data_b64,
+            ]
 
-    instance_id = instances[0]["InstanceId"]
-    print(f"-> Successfully requested Spot instance: {instance_id}")
+            try:
+                res = run_aws(launch_args)
+                instances = res.get("Instances", [])
+                if instances:
+                    instance_id = instances[0]["InstanceId"]
+                    chosen_type = inst_type
+                    print(f"\n-> SUCCESS! Launched {inst_type} Spot instance in {az_name}: {instance_id}")
+                    break
+            except Exception as e:
+                print(f"     Not available in {az_name}: {e}")
+
+        if instance_id:
+            break
+
+    if not instance_id:
+        raise RuntimeError("Could not find spot capacity in any availability zone!")
 
     print("\nWaiting for instance to enter 'running' state...")
     while True:
