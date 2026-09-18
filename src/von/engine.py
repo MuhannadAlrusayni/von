@@ -4,7 +4,7 @@ import os
 import threading
 from typing import Any, Dict, List, Optional, Union
 
-from .backends import BaseBackend, ModernBERTBackend, NeedleBackend, QwenPCDBackend, UnoBackend
+from .backends import BaseBackend, ModernBERTBackend, NeedleBackend, QwenPCDBackend
 from .types import (
     Choice,
     ChoiceAnswer,
@@ -31,11 +31,9 @@ class VonEngine:
             self.backend = ModernBERTBackend()
         elif self.backend_name in ("qwen", "qwen0.5b", "qwen-0.5b", "qwen-pcd"):
             self.backend = QwenPCDBackend()
-        elif self.backend_name in ("uno", "k2-uno", "uno-0.9b", "k2-horizon"):
-            self.backend = UnoBackend()
         else:
             raise ValueError(
-                f"Unknown backend '{self.backend_name}'. Available: needle, modernbert, qwen0.5b, uno"
+                f"Unknown backend '{self.backend_name}'. Available: needle, modernbert, qwen0.5b"
             )
 
     @classmethod
