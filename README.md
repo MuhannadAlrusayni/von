@@ -28,6 +28,37 @@ Named in homage to two giants of decision theory and computation:
 
 ---
 
+## Multiple Backends
+
+Von supports three distinct backends depending on your memory and accuracy budget:
+
+```python
+import von
+
+# 1. Needle 3 (Default): 14MB footprint, ~28MB RAM, pure CPU reflex (<15ms)
+von.set_backend("needle")
+
+# 2. ModernBERT-151M: GLiClass candidate slot scoring with Brier calibration (~35ms)
+von.set_backend("modernbert")
+
+# 3. Qwen 0.5B (PCD): Parallel Constrained Decoding reading logits directly
+von.set_backend("qwen0.5b")
+```
+
+### Benchmark Comparison (OpenJev `authored144` Suite)
+
+| Backend / Model | Weights | Hardware / Env | Balanced Acc | Latency / Call | VRAM Needed |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **46.7%** | **~38 ms** (embed) | **0 MB** |
+| **Von (`modernbert`)** | **290 MB** | **CPU (In-Process)** | **45.7%** | **~35 ms** | **0 MB** |
+| **Von (`qwen0.5b`)** | **942 MB** | **CPU (In-Process)** | **64.4%** | **~650 ms (CPU)** | **0 MB** |
+| Qwen3-0.6B (OpenJev) | 639 MB | GPU / WebGPU | 44.0% | ~35 ms | 1.2 GB |
+| MiniCPM5-2B (OpenJev) | 1.56 GB | GPU / WebGPU | 68.6% | ~40 ms | 3.5 GB |
+| Qwen3.5-4B (OpenJev) | 3.01 GB | RTX 3090 (24GB) | 81.3% | ~48 ms | 8.0 GB |
+| Published Jev (TypeSafe) | Remote | Closed Cloud API | 88.3% | 100–300 ms | Cloud |
+
+---
+
 ## Installation
 
 ```bash

@@ -19,6 +19,15 @@ dependencies = [
 [project.scripts]
 von = "von.cli:main"
 
+[project.optional-dependencies]
+all = [
+    "torch>=2.0.0",
+    "transformers>=4.40.0",
+    "gliclass>=0.1.20",
+    "onnxruntime>=1.17.0",
+]
+
+
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]
 build-backend = "uv_build"

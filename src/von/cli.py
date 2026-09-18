@@ -1,6 +1,7 @@
 """CLI entrypoint for Von."""
 
 import json
+import os
 import sys
 import click
 import uvicorn
@@ -19,10 +20,12 @@ def main():
 @main.command()
 @click.option("--host", default="0.0.0.0", help="Host interface to bind on.")
 @click.option("--port", default=8000, type=int, help="Port to listen on.")
+@click.option("--backend", default="needle", type=click.Choice(["needle", "modernbert", "qwen0.5b"]), help="Decision backend to load.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
-def serve(host: str, port: int, reload: bool):
+def serve(host: str, port: int, backend: str, reload: bool):
     """Start the Von System One HTTP server."""
-    click.echo(f"Starting Von Decision Server on http://{host}:{port}")
+    os.environ["VON_BACKEND"] = backend
+    click.echo(f"Starting Von Decision Server [{backend} backend] on http://{host}:{port}")
     uvicorn.run("von.server:app", host=host, port=port, reload=reload)
 
 
