@@ -22,7 +22,7 @@ def main():
 @main.command()
 @click.option("--host", default="0.0.0.0", help="Host interface to bind on.")
 @click.option("--port", default=8000, type=int, help="Port to listen on.")
-@click.option("--backend", default="needle", type=click.Choice(["needle", "laya", "modernbert", "qwen0.5b"]), help="Decision backend to load.")
+@click.option("--backend", default="needle", type=click.Choice(["needle", "laya"]), help="Decision backend to load.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
 def serve(host: str, port: int, backend: str, reload: bool):
     """Start the Von System One HTTP server."""

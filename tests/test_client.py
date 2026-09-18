@@ -28,8 +28,8 @@ async def test_async_von_client_local():
         state="Error: Connection refused on port 5432.",
         questions={
             "service": choice("Which service is failing?", {
-                "database": "Postgres database port",
-                "web": "Web server HTTP port",
+                "database": "Database server or Postgres port 5432",
+                "web": "Web server or HTTP port",
             }),
         },
     )

@@ -38,14 +38,8 @@ import von
 # 1. Needle 3 (Default): 14MB footprint, ~28MB RAM, pure CPU reflex (<15ms)
 von.set_backend("needle")
 
-# 2. Laya-421M: Full RLCD decision model by Convai Innovations (70.3% accuracy)
+# 2. Laya-421M: Full RLCD decision model by Convai Innovations (70.3% accuracy, ~390ms)
 von.set_backend("laya")
-
-# 3. ModernBERT-151M: GLiClass candidate slot scoring with Brier calibration (~35ms)
-von.set_backend("modernbert")
-
-# 4. Qwen 0.5B (PCD): Parallel Constrained Decoding reading logits directly
-von.set_backend("qwen0.5b")
 ```
 
 ### Benchmark Comparison (OpenJev `authored144` Suite)
@@ -54,8 +48,6 @@ von.set_backend("qwen0.5b")
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Von (`needle`)** | **14 MB** | **CPU (In-Process)** | **52.6%** | **3.757% / MB** 🏆 | **~38 ms** (embed) | **0 MB** |
 | **Von (`laya`)** | **840 MB** | **CPU (In-Process)** | **70.3%** | **0.084% / MB** | **~390 ms** | **0 MB** |
-| **Von (`modernbert`)** | **290 MB** | **CPU (In-Process)** | **45.7%** | **0.158% / MB** | **~35 ms** | **0 MB** |
-| **Von (`qwen0.5b`)** | **942 MB** | **CPU (In-Process)** | **64.4%** | **0.068% / MB** | **~650 ms (CPU)** | **0 MB** |
 | Qwen3-0.6B (OpenJev) | 639 MB | GPU / WebGPU | 44.0% | 0.069% / MB | ~35 ms | 1.2 GB |
 | MiniCPM5-2B (OpenJev) | 1.56 GB | GPU / WebGPU | 68.6% | 0.044% / MB | ~40 ms | 3.5 GB |
 | Qwen3.5-4B (OpenJev) | 3.01 GB | RTX 3090 (24GB) | 81.3% | 0.027% / MB | ~48 ms | 8.0 GB |

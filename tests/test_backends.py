@@ -15,20 +15,6 @@ def test_needle_backend_explicit():
     assert res.confidence > 0.0
 
 
-def test_modernbert_backend():
-    von.set_backend("modernbert")
-    res = von.decide("Customer wants to reset forgotten password", choices=["account_access", "billing"])
-    assert res.choice == "account_access"
-    assert "account_access" in res.probabilities
-
-
-def test_qwen_backend():
-    von.set_backend("qwen0.5b")
-    res = von.decide("Server CPU temperature is 105 degrees Celsius", choices=["hardware_alert", "billing"])
-    assert res.choice == "hardware_alert"
-    assert "hardware_alert" in res.probabilities
-
-
 def test_laya_backend():
     von.set_backend("laya")
     res = von.decide("Customer requests refund for duplicate charge on invoice #100", choices=["billing", "technical"])
