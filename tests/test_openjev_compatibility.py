@@ -46,6 +46,24 @@ def test_openjev_policy_row():
     assert ans.probabilities["not_required"] > 0.8
 
 
+def test_openjev_support_row():
+    """Verify Von on deployment evidence assessment row."""
+    row = {
+        "id": "support-1",
+        "state": "The deployment completed at 14:02 UTC. Health checks passed in all three zones. No rollback was initiated.",
+        "question": "Is there evidence that the deployment succeeded?",
+        "options": [
+            {"id": "yes", "description": "The deployment succeeded."},
+            {"id": "no", "description": "The deployment did not succeed."},
+            {"id": "insufficient", "description": "The evidence is insufficient to decide."},
+        ],
+    }
+    criteria = {opt["id"]: opt["description"] for opt in row["options"]}
+    ans = von.decide(state=row["state"], choices=criteria, instructions=row["question"])
+    assert ans.choice == "yes"
+    assert ans.probabilities["yes"] > 0.45
+
+
 def test_duplicate_options_rejected():
     """Ensure duplicate option IDs in Choice raise an error."""
     with pytest.raises(Exception):

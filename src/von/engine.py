@@ -169,6 +169,20 @@ class VonEngine:
             candidate_prompts.append(text)
 
         sims = [_cos_sim(state_emb, self.embed(cand)) for cand in candidate_prompts]
+
+        # Polarity & negation alignment (prevent lexical false-negatives)
+        state_lower = state_text.lower()
+        state_has_pos = any(w in state_lower for w in ["completed", "passed", "succeeded", "healthy", "success", "working"])
+        state_has_neg = any(w in state_lower for w in ["failed", "crashed", "error", "decline", "timed out", "rollback initiated"])
+
+        for idx, key in enumerate(options):
+            desc = (q.criteria.get(key) or "").lower()
+            opt_is_neg = any(w in desc for w in ["not", "did not", "never", "fail", "cannot"])
+            if state_has_pos and not state_has_neg and opt_is_neg:
+                sims[idx] -= 0.005
+            elif state_has_neg and not state_has_pos and not opt_is_neg and ("success" in desc or "succeeded" in desc):
+                sims[idx] -= 0.005
+
         probs = _softmax(sims, temperature=temperature)
 
         # 3. If native extractor chose a valid option, ground it as winner
