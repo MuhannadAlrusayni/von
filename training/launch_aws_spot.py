@@ -13,7 +13,10 @@ import sys
 import time
 
 
-AWS_CLI = "/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe"
+import shutil
+
+VENV_AWS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".venv", "bin", "aws"))
+AWS_CLI = VENV_AWS if os.path.exists(VENV_AWS) else (shutil.which("aws") or "/mnt/c/Program Files/Amazon/AWSCLIV2/aws.exe")
 REGION = "us-west-2"
 SUBNETS = [
     ("subnet-083ba040", "us-west-2a"),
@@ -52,7 +55,8 @@ cd /opt/von
 uv venv
 source .venv/bin/activate
 uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-uv pip install transformers datasets scipy sentencepiece tiktoken accelerate
+uv pip install transformers datasets scipy sentencepiece tiktoken accelerate awscli
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # Build 250k training corpus
 python training/prepare_dataset.py --max_train 250000 --val_samples 3000 --output_dir data
@@ -61,11 +65,12 @@ python training/prepare_dataset.py --max_train 250000 --val_samples 3000 --outpu
 NUM_GPUS=$(nvidia-smi -L | wc -l)
 echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training..."
 
-torchrun --nproc_per_node=$NUM_GPUS training/train_rlcd.py \\
-    --train_data data/train.jsonl \\
-    --val_data data/val.jsonl \\
-    --epochs 3 \\
-    --batch_size 16 \\
+torchrun --nproc_per_node=$NUM_GPUS training/train_rlcd.py \
+    --train_data data/train.jsonl \
+    --val_data data/val.jsonl \
+    --epochs 3 \
+    --batch_size 4 \
+    --grad_accum_steps 4 \
     --output_dir checkpoints/von-modernbert-rlcd
 
 # Upload trained checkpoint to S3

@@ -144,7 +144,8 @@ def train(
     model_id: str = "tasksource/ModernBERT-large-nli",
     output_dir: str = "checkpoints/von-modernbert-rlcd",
     epochs: int = 3,
-    batch_size: int = 8,
+    batch_size: int = 4,
+    grad_accum_steps: int = 4,
     lr: float = 2e-5,
     brier_weight: float = 0.5,
     max_length: int = 512,
@@ -171,6 +172,10 @@ def train(
 
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     raw_model = AutoModelForSequenceClassification.from_pretrained(model_id).to(device)
+
+    # Enable gradient checkpointing to save ~65% activation VRAM
+    if hasattr(raw_model, "gradient_checkpointing_enable"):
+        raw_model.gradient_checkpointing_enable()
 
     entail_idx = 0
     id2label = getattr(raw_model.config, "id2label", {})
@@ -210,7 +215,8 @@ def train(
     )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
-    total_steps = (len(train_loader) * epochs)
+    steps_per_epoch = math.ceil(len(train_loader) / grad_accum_steps)
+    total_steps = steps_per_epoch * epochs
     warmup_steps = int(total_steps * 0.1)
     scheduler = get_cosine_schedule_with_warmup(optimizer, warmup_steps, total_steps)
 
@@ -220,7 +226,8 @@ def train(
         print(f"\nStarting training:")
         print(f"  -> Train Samples:   {len(train_ds):,}")
         print(f"  -> Val Samples:     {len(val_ds):,}")
-        print(f"  -> Batch Size:      {batch_size} (Global: {batch_size * world_size})")
+        print(f"  -> Micro Batch:     {batch_size}")
+        print(f"  -> Grad Accum:      {grad_accum_steps} (Effective: {batch_size * grad_accum_steps * world_size})")
         print(f"  -> Epochs:          {epochs}")
         print(f"  -> Total Steps:     {total_steps:,}\n")
 
@@ -233,11 +240,10 @@ def train(
         model.train()
         epoch_loss = 0.0
         epoch_acc = 0.0
+        optimizer.zero_grad()
         t0 = time.time()
 
         for step, batch in enumerate(train_loader):
-            optimizer.zero_grad()
-
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
@@ -249,13 +255,17 @@ def train(
                 loss, ce_loss, acc = compute_rlcd_loss(
                     entail_scores, labels, option_counts, brier_weight=brier_weight
                 )
+                accum_loss = loss / grad_accum_steps
 
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            scaler.step(optimizer)
-            scaler.update()
-            scheduler.step()
+            scaler.scale(accum_loss).backward()
+
+            if (step + 1) % grad_accum_steps == 0 or (step + 1) == len(train_loader):
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
+                scheduler.step()
 
             epoch_loss += loss.item()
             epoch_acc += acc
@@ -340,7 +350,8 @@ if __name__ == "__main__":
     parser.add_argument("--model_id", type=str, default="tasksource/ModernBERT-large-nli")
     parser.add_argument("--output_dir", type=str, default="checkpoints/von-modernbert-rlcd")
     parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--grad_accum_steps", type=int, default=4)
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--brier_weight", type=float, default=0.5)
     args = parser.parse_args()
@@ -352,6 +363,7 @@ if __name__ == "__main__":
         output_dir=args.output_dir,
         epochs=args.epochs,
         batch_size=args.batch_size,
+        grad_accum_steps=args.grad_accum_steps,
         lr=args.lr,
         brier_weight=args.brier_weight,
     )
