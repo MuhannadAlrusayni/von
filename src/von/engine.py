@@ -28,36 +28,39 @@ class VonEngine:
     _instance: Optional["VonEngine"] = None
     _lock: threading.Lock = threading.Lock()
 
-    def __init__(self, backend_name: str = "needle"):
+    def __init__(self, backend_name: str = "needle", device: Optional[str] = None):
         self.backend_name = backend_name.lower().strip()
+        self.device = device or os.environ.get("VON_DEVICE")
         if self.backend_name in ("needle", "cactus-needle", "needle-json", "needle_json"):
             self.backend: BaseBackend = NeedleBackend()
         elif self.backend_name in ("modernbert", "berta-modern", "modernbert-nli", "von"):
-            self.backend = BertaBackend(variant="modernbert")
+            self.backend = BertaBackend(variant="modernbert", device=self.device)
         elif self.backend_name in ("laya", "laya-421m", "convaiinnovations/laya"):
-            self.backend = LayaBackend()
+            self.backend = LayaBackend(device=self.device)
         elif self.backend_name in ("berta", "berta-v3", "deberta", "deberta-v3"):
-            self.backend = BertaBackend(variant="deberta-v3")
+            self.backend = BertaBackend(variant="deberta-v3", device=self.device)
         elif self.backend_name in ("berta-xxl", "deberta-xxl", "deberta-v2-xxlarge"):
-            self.backend = BertaBackend(variant="deberta-xxl")
+            self.backend = BertaBackend(variant="deberta-xxl", device=self.device)
         else:
             raise ValueError(
                 f"Unknown backend '{self.backend_name}'. Available: needle, modernbert, laya, berta-v3"
             )
 
     @classmethod
-    def get_instance(cls, backend: Optional[str] = None) -> "VonEngine":
+    def get_instance(cls, backend: Optional[str] = None, device: Optional[str] = None) -> "VonEngine":
         with cls._lock:
             if cls._instance is None:
                 b = backend or os.environ.get("VON_BACKEND", "needle")
-                cls._instance = cls(backend_name=b)
+                d = device or os.environ.get("VON_DEVICE")
+                cls._instance = cls(backend_name=b, device=d)
             return cls._instance
 
     @classmethod
-    def set_backend(cls, backend: str):
-        """Switch active engine backend ('needle', 'laya', 'berta-v3', 'berta-modern', 'berta-xxl')."""
+    def set_backend(cls, backend: str, device: Optional[str] = None):
+        """Switch active engine backend ('needle', 'modernbert', 'laya', 'berta-v3')."""
         with cls._lock:
-            cls._instance = cls(backend_name=backend)
+            d = device or os.environ.get("VON_DEVICE")
+            cls._instance = cls(backend_name=backend, device=d)
 
     def embed(self, text: str) -> List[float]:
         if hasattr(self.backend, "embed"):

@@ -31,8 +31,9 @@ def _format_state(state: Any) -> str:
 class LayaBackend(BaseBackend):
     """Non-autoregressive System 1 decision engine using convaiinnovations/laya."""
 
-    def __init__(self, model_id: str = "convaiinnovations/laya"):
+    def __init__(self, model_id: str = "convaiinnovations/laya", device: Optional[str] = None):
         self.model_id = model_id
+        self.device = device or os.environ.get("VON_DEVICE")
         self._agent = None
         self._lock = threading.Lock()
 
@@ -41,7 +42,8 @@ class LayaBackend(BaseBackend):
             if self._agent is None:
                 import laya
 
-                self._agent = laya.load(self.model_id)
+                dev_arg = None if self.device in (None, "auto") else self.device
+                self._agent = laya.load(self.model_id, device=dev_arg)
             return self._agent
 
     def evaluate_choice(

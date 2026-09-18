@@ -37,6 +37,19 @@ def _format_state(state: Any) -> str:
         return str(state)
 
 
+def _detect_device(device_str: Optional[str] = None) -> torch.device:
+    if device_str and device_str.lower() != "auto":
+        return torch.device(device_str)
+    env_dev = os.environ.get("VON_DEVICE")
+    if env_dev and env_dev.lower() != "auto":
+        return torch.device(env_dev)
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 class BertaBackend(BaseBackend):
     """Native non-autoregressive decision engine powered by bidirectional BERT/DeBERTa encoders."""
 
@@ -44,7 +57,7 @@ class BertaBackend(BaseBackend):
         var_clean = variant.lower().strip()
         self.variant = var_clean
         self.model_id = MODEL_REGISTRY.get(var_clean, variant)
-        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        self.device = _detect_device(device)
         self._model = None
         self._tokenizer = None
         self._entail_idx = 0
@@ -55,9 +68,17 @@ class BertaBackend(BaseBackend):
             if self._model is None or self._tokenizer is None:
                 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+                dtype = torch.float32
+                if self.device.type == "cuda":
+                    dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+                elif self.device.type == "mps":
+                    dtype = torch.float16
+
                 self._tokenizer = AutoTokenizer.from_pretrained(self.model_id)
-                self._model = AutoModelForSequenceClassification.from_pretrained(self.model_id)
-                self._model.to(self.device).eval()
+                self._model = AutoModelForSequenceClassification.from_pretrained(
+                    self.model_id,
+                    torch_dtype=dtype,
+                ).to(self.device).eval()
 
                 # Check for calibration.json if using local checkpoint
                 calib_path = os.path.join(self.model_id, "calibration.json")

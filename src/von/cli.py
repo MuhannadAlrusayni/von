@@ -23,11 +23,14 @@ def main():
 @click.option("--host", default="0.0.0.0", help="Host interface to bind on.")
 @click.option("--port", default=8000, type=int, help="Port to listen on.")
 @click.option("--backend", default="modernbert", type=click.Choice(["modernbert", "laya", "needle", "berta-v3"]), help="Decision backend to load.")
+@click.option("--device", default="auto", help="Compute device: 'auto', 'cuda', 'mps', 'cpu'.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
-def serve(host: str, port: int, backend: str, reload: bool):
+def serve(host: str, port: int, backend: str, device: str, reload: bool):
     """Start the Von System One HTTP server."""
     os.environ["VON_BACKEND"] = backend
-    click.echo(f"Starting Von Decision Server [{backend} backend] on http://{host}:{port}")
+    if device and device != "auto":
+        os.environ["VON_DEVICE"] = device
+    click.echo(f"Starting Von Decision Server [{backend} on {device}] on http://{host}:{port}")
     uvicorn.run("von.server:app", host=host, port=port, reload=reload)
 
 
@@ -45,8 +48,15 @@ def serve(host: str, port: int, backend: str, reload: bool):
     default="Which option best describes the input?",
     help="Instructions for classification.",
 )
-def decide(text: str, choices: str, instructions: str):
+@click.option(
+    "--device",
+    default="auto",
+    help="Compute device: 'auto', 'cuda', 'mps', 'cpu'.",
+)
+def decide(text: str, choices: str, instructions: str, device: str):
     """Classify input text among discrete choices."""
+    if device and device != "auto":
+        os.environ["VON_DEVICE"] = device
     opts = [c.strip() for c in choices.split(",") if c.strip()]
     if not opts:
         click.echo("Error: At least one choice must be provided.", err=True)
@@ -83,8 +93,15 @@ def decide(text: str, choices: str, instructions: str):
     default="",
     help="Explicit criteria description for False condition.",
 )
-def judge(text: str, instructions: str, pos: str, neg: str):
+@click.option(
+    "--device",
+    default="auto",
+    help="Compute device: 'auto', 'cuda', 'mps', 'cpu'.",
+)
+def judge(text: str, instructions: str, pos: str, neg: str, device: str):
     """Evaluate a yes/no judgment (Noul) and return the probability."""
+    if device and device != "auto":
+        os.environ["VON_DEVICE"] = device
     crit = {}
     if pos:
         crit["true"] = pos
@@ -118,8 +135,15 @@ def judge(text: str, instructions: str, pos: str, neg: str):
     default="Rate where the state falls on this scale:",
     help="Instructions for rating.",
 )
-def rate(text: str, levels: str, instructions: str):
+@click.option(
+    "--device",
+    default="auto",
+    help="Compute device: 'auto', 'cuda', 'mps', 'cpu'.",
+)
+def rate(text: str, levels: str, instructions: str, device: str):
     """Rate text on an ordered multi-level scale (Score)."""
+    if device and device != "auto":
+        os.environ["VON_DEVICE"] = device
     lvl_list = [lvl.strip() for lvl in levels.split(",") if lvl.strip()]
     if len(lvl_list) < 2:
         click.echo("Error: At least two levels must be provided.", err=True)
