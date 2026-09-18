@@ -94,10 +94,10 @@ def _resolve_state_path(state: Any, path: str) -> Optional[Any]:
     return curr
 
 
-class HopEngine:
+class VonEngine:
     """System One inference engine wrapping Needle 3."""
 
-    _instance: Optional["HopEngine"] = None
+    _instance: Optional["VonEngine"] = None
     _lock: threading.Lock = threading.Lock()
 
     def __init__(self, generation: int = 3):
@@ -106,7 +106,7 @@ class HopEngine:
         self._cache_lock = threading.Lock()
 
     @classmethod
-    def get_instance(cls) -> "HopEngine":
+    def get_instance(cls) -> "VonEngine":
         with cls._lock:
             if cls._instance is None:
                 cls._instance = cls()
@@ -174,9 +174,7 @@ class HopEngine:
         # 3. If native extractor chose a valid option, ground it as winner
         if extracted_choice and extracted_choice in options:
             win_idx = options.index(extracted_choice)
-            # Ensure winner holds the dominant calibrated probability
             if probs[win_idx] < max(probs):
-                boost = max(probs) + 0.05
                 sims[win_idx] += 0.015
                 probs = _softmax(sims, temperature=temperature)
             best_choice = extracted_choice
@@ -280,7 +278,7 @@ class HopEngine:
         self,
         state: Any,
         questions: Dict[str, Union[Question, Dict[str, Any]]],
-        model: str = "hop-latest",
+        model: str = "von-latest",
     ) -> SystemOneResponse:
         """Evaluate all questions against the state in parallel (speculative fan-out)."""
         state_str = _format_state(state)
@@ -328,7 +326,10 @@ class HopEngine:
         input_tokens = max(1, (len(state_str) + total_q_chars) // 4)
         output_tokens = len(answers) * 8
 
-        resolved_model = "hop-1.0.0" if model in ("hop-latest", "hop-preview") else model
+        if model in ("von-latest", "von-preview", "jev-latest", "jev-preview"):
+            resolved_model = "von-1.0.0"
+        else:
+            resolved_model = model
 
         return SystemOneResponse(
             model=resolved_model,

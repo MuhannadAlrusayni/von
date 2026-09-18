@@ -1,10 +1,10 @@
 import pytest
-from hop.client import HopClient, AsyncHopClient
-from hop.types import choice, noul, score
+from von.client import VonClient, AsyncVonClient
+from von.types import choice, noul, score
 
 
-def test_hop_client_local():
-    client = HopClient(local=True)
+def test_von_client_local():
+    client = VonClient(local=True)
     res = client.system_one(
         state="Customer requested cancellation of their monthly plan.",
         questions={
@@ -16,14 +16,14 @@ def test_hop_client_local():
             "is_cancel": noul("Does the user want to cancel?"),
         },
     )
-    assert res.model == "hop-1.0.0"
+    assert res.model == "von-1.0.0"
     assert res.answers["action"].choice == "cancel"
     assert res.answers["is_cancel"].noul > 0.5
 
 
 @pytest.mark.anyio
-async def test_async_hop_client_local():
-    client = AsyncHopClient(local=True)
+async def test_async_von_client_local():
+    client = AsyncVonClient(local=True)
     res = await client.system_one(
         state="Error: Connection refused on port 5432.",
         questions={

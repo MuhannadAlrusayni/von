@@ -1,12 +1,9 @@
-"""Example: Support Ticket Triage using Hop.
+"""Example: Support Ticket Triage using Von."""
 
-Demonstrates multi-branching decisions based on Category, Severity, and Frustration.
-"""
-
-import hop
+import von
 
 TRIAGE_QUESTIONS = {
-    "category": hop.choice(
+    "category": von.choice(
         instructions="What kind of ticket is `ticket`?",
         criteria={
             "bug_report": "Something is broken, degraded, or throwing errors",
@@ -15,7 +12,7 @@ TRIAGE_QUESTIONS = {
             "other": "General inquiries or uncategorized",
         },
     ),
-    "bug_severity": hop.score(
+    "bug_severity": von.score(
         instructions="How severe is the issue in `ticket`?",
         criteria=[
             "Cosmetic; no impact on core functionality",
@@ -23,13 +20,13 @@ TRIAGE_QUESTIONS = {
             "Blocking issue; no workaround exists",
         ],
     ),
-    "has_repro_steps": hop.noul(
+    "has_repro_steps": von.noul(
         instructions="Does `ticket` say how to reproduce the problem?"
     ),
-    "refund_requested": hop.noul(
+    "refund_requested": von.noul(
         instructions="Does the customer ask for money back or a refund?"
     ),
-    "frustration": hop.score(
+    "frustration": von.score(
         instructions="How frustrated is the author of `ticket`?",
         criteria=[
             "Calm, just stating facts",
@@ -41,7 +38,7 @@ TRIAGE_QUESTIONS = {
 
 
 def triage(ticket: str) -> dict:
-    resp = hop.system_one(state={"ticket": ticket}, questions=TRIAGE_QUESTIONS)
+    resp = von.system_one(state={"ticket": ticket}, questions=TRIAGE_QUESTIONS)
     ans = resp.answers
 
     category = ans["category"]

@@ -1,7 +1,7 @@
 [project]
-name = "hop"
+name = "von"
 version = "1.0.0"
-description = "Hop - The open-source System One decision engine. Sub-15ms, local, non-autoregressive decision primitives."
+description = "Von - The open-source System One decision model. Sub-15ms, local, non-autoregressive decision primitives in homage to John von Neumann and Ludwig von Mises."
 authors = [
     { name = "Victor Hugo", email = "victor.panisa@gmail.com" }
 ]
@@ -17,8 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-hop = "hop.cli:main"
-
+von = "von.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]

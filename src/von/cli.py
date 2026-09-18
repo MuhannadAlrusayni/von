@@ -1,4 +1,4 @@
-"""CLI entrypoint for Hop."""
+"""CLI entrypoint for Von."""
 
 import json
 import sys
@@ -10,9 +10,9 @@ from .api import system_one as api_system_one
 
 
 @click.group()
-@click.version_option(version="1.0.0", prog_name="hop")
+@click.version_option(version="1.0.0", prog_name="von")
 def main():
-    """Hop - Open Source System One Decision Model."""
+    """Von - Open Source System One Decision Model."""
     pass
 
 
@@ -21,9 +21,9 @@ def main():
 @click.option("--port", default=8000, type=int, help="Port to listen on.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
 def serve(host: str, port: int, reload: bool):
-    """Start the Hop System One HTTP server."""
-    click.echo(f"Starting Hop Decision Server on http://{host}:{port}")
-    uvicorn.run("hop.server:app", host=host, port=port, reload=reload)
+    """Start the Von System One HTTP server."""
+    click.echo(f"Starting Von Decision Server on http://{host}:{port}")
+    uvicorn.run("von.server:app", host=host, port=port, reload=reload)
 
 
 @main.command()
@@ -69,7 +69,7 @@ def eval(request_file: str):
 
     state = data.get("state")
     questions = data.get("questions")
-    model = data.get("model", "hop-latest")
+    model = data.get("model", "von-latest")
 
     if state is None or questions is None:
         click.echo("Error: JSON must contain 'state' and 'questions' fields.", err=True)

@@ -1,6 +1,6 @@
 import pytest
-import hop
-from hop.types import Noul, Choice, Score, noul, choice, score
+import von
+from von.types import Noul, Choice, Score, noul, choice, score
 
 
 def test_helper_constructors():
@@ -18,7 +18,7 @@ def test_helper_constructors():
 
 
 def test_decide_helper():
-    ans = hop.decide(
+    ans = von.decide(
         "I need a refund for my order #1234",
         choices=["refund_request", "password_reset", "feature_idea"],
     )
@@ -29,7 +29,7 @@ def test_decide_helper():
 
 
 def test_judge_helper():
-    p = hop.judge(
+    p = von.judge(
         "Urgent: Payment failed on invoice 999",
         instructions="Is this an urgent or critical payment failure?",
     )
@@ -39,7 +39,7 @@ def test_judge_helper():
 
 
 def test_rate_helper():
-    ans = hop.rate(
+    ans = von.rate(
         "Server is completely dead and throwing 500 across all nodes",
         criteria=[
             "Cosmetic issue",

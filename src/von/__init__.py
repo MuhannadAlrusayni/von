@@ -1,6 +1,7 @@
-"""hop - The open-source System One decision model.
+"""von - The open-source System One decision model.
 
 Fast, local, non-autoregressive decision primitives.
+Named in homage to John von Neumann and Ludwig von Mises.
 """
 
 from .types import (
@@ -16,7 +17,7 @@ from .types import (
     SystemOneResponse,
     Usage,
 )
-from .client import HopClient, AsyncHopClient
+from .client import VonClient, AsyncVonClient
 from .api import system_one, decide, judge, rate
 
 __version__ = "1.0.0"
@@ -33,8 +34,8 @@ __all__ = [
     "ScoreAnswer",
     "SystemOneResponse",
     "Usage",
-    "HopClient",
-    "AsyncHopClient",
+    "VonClient",
+    "AsyncVonClient",
     "system_one",
     "decide",
     "judge",

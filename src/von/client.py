@@ -1,15 +1,15 @@
-"""Client classes for Hop (supporting local in-memory execution and remote HTTP)."""
+"""Client classes for Von (supporting local in-memory execution and remote HTTP)."""
 
 import os
 from typing import Any, Dict, Optional, Union
 import httpx
 
-from .engine import HopEngine
+from .engine import VonEngine
 from .types import Question, SystemOneResponse
 
 
-class HopClient:
-    """Client for executing Hop System One queries."""
+class VonClient:
+    """Client for executing Von System One queries."""
 
     def __init__(
         self,
@@ -18,13 +18,13 @@ class HopClient:
         local: bool = True,
         timeout: float = 30.0,
     ):
-        """Initialize Hop client.
+        """Initialize Von client.
 
         If `base_url` is provided or `local=False`, queries are sent over HTTP.
-        Otherwise, queries are executed locally in-process via `HopEngine` (zero network latency).
+        Otherwise, queries are executed locally in-process via `VonEngine` (zero network latency).
         """
-        self.api_key = api_key or os.environ.get("HOP_API_KEY") or os.environ.get("TYPESAFE_API_KEY")
-        self.base_url = base_url or os.environ.get("HOP_BASE_URL")
+        self.api_key = api_key or os.environ.get("VON_API_KEY") or os.environ.get("TYPESAFE_API_KEY")
+        self.base_url = base_url or os.environ.get("VON_BASE_URL")
         self.local = local and (self.base_url is None)
         self.timeout = timeout
         if not self.local and not self.base_url:
@@ -34,14 +34,13 @@ class HopClient:
         self,
         state: Any,
         questions: Dict[str, Union[Question, Dict[str, Any]]],
-        model: str = "hop-latest",
+        model: str = "von-latest",
     ) -> SystemOneResponse:
         """Evaluate a state and questions using System One."""
         if self.local:
-            engine = HopEngine.get_instance()
+            engine = VonEngine.get_instance()
             return engine.evaluate(state=state, questions=questions, model=model)
 
-        # Remote execution over HTTP
         url = f"{self.base_url.rstrip('/')}/v1/systemone"
         headers = {
             "Content-Type": "application/json",
@@ -65,8 +64,8 @@ class HopClient:
             return SystemOneResponse(**data)
 
 
-class AsyncHopClient:
-    """Asynchronous client for executing Hop queries."""
+class AsyncVonClient:
+    """Asynchronous client for executing Von queries."""
 
     def __init__(
         self,
@@ -75,8 +74,8 @@ class AsyncHopClient:
         local: bool = True,
         timeout: float = 30.0,
     ):
-        self.api_key = api_key or os.environ.get("HOP_API_KEY") or os.environ.get("TYPESAFE_API_KEY")
-        self.base_url = base_url or os.environ.get("HOP_BASE_URL")
+        self.api_key = api_key or os.environ.get("VON_API_KEY") or os.environ.get("TYPESAFE_API_KEY")
+        self.base_url = base_url or os.environ.get("VON_BASE_URL")
         self.local = local and (self.base_url is None)
         self.timeout = timeout
         if not self.local and not self.base_url:
@@ -86,12 +85,11 @@ class AsyncHopClient:
         self,
         state: Any,
         questions: Dict[str, Union[Question, Dict[str, Any]]],
-        model: str = "hop-latest",
+        model: str = "von-latest",
     ) -> SystemOneResponse:
         """Evaluate a state and questions asynchronously."""
         if self.local:
-            # Run in worker thread if needed or synchronous in engine
-            engine = HopEngine.get_instance()
+            engine = VonEngine.get_instance()
             return engine.evaluate(state=state, questions=questions, model=model)
 
         url = f"{self.base_url.rstrip('/')}/v1/systemone"

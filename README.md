@@ -1,37 +1,46 @@
-# 🪨 Hop (`hop-ai`)
+# 🪨 Von (`von`)
 
 **The Open-Source System One Decision Model.**  
-*Sub-15ms decisions. 14MB footprint. Zero cloud latency. Zero API keys. Zero VC tax.*
+*Sub-15ms decisions. 14MB footprint. Zero cloud latency. Zero API keys. Zero VC tax.*  
+*Named in homage to **John von Neumann** and **Ludwig von Mises**.*
 
 ---
 
-## Why Hop?
+## Why Von?
 
 TypeSafe AI raised $40M to charge $0.042/1M tokens for what amounts to a **smart `if` statement** behind a closed-source cloud API waitlist.
 
-**Hop** is 100% open-source and runs locally on your machine. Powered by the `cactus-needle` 3.x Simple Attention Network (SAN), Hop strips out autoregressive text generation bloat to deliver pure, structured, calibrated decisions in **under 15 milliseconds** on a standard CPU.
+**Von** is 100% open-source and runs locally on your machine. Powered by the `cactus-needle` 3.x Simple Attention Network (SAN), Von strips out autoregressive text generation bloat to deliver pure, structured, calibrated decisions in **under 15 milliseconds** on a standard CPU.
 
 - **Non-Autoregressive:** Evaluates all questions in a single forward pass.
 - **Zero Hallucinations:** Structurally guaranteed output types. No Markdown drift, no JSON formatting errors.
 - **Epistemically Calibrated:** Confidence scores and probability distributions that reflect statistical reality.
 - **14MB Binary:** Runs in ~28MB RAM on CPU. No GPU required.
-- **Drop-in Jev Compatible:** Ships with an in-process SDK and a `hop serve` HTTP server matching TypeSafe's `POST /v1/systemone` wire protocol.
+- **Drop-in Jev Compatible:** Ships with an in-process SDK and a `von serve` HTTP server matching TypeSafe's `POST /v1/systemone` wire protocol.
+
+---
+
+## The Name: Von
+
+Named in homage to two giants of decision theory and computation:
+1. **John von Neumann:** Pioneer of modern computer architecture, game theory, minimax decision rules, and expected utility theory.
+2. **Ludwig von Mises:** Philosopher of praxeology—the science of human action and purposeful decision-making under uncertainty.
 
 ---
 
 ## Installation
 
 ```bash
-pip install hop-ai
+pip install von
 # or with uv
-uv add hop-ai
+uv add von
 ```
 
 ---
 
 ## The Three Primitives
 
-Hop implements the three core System One question types:
+Von implements the three core System One question types:
 
 | Primitive | Question Type | Output Shape | When to Use |
 | :--- | :--- | :--- | :--- |
@@ -43,12 +52,12 @@ Hop implements the three core System One question types:
 
 ## Quickstart
 
-### 1. Fast Discrete Decisions (`hop.decide`)
+### 1. Fast Discrete Decisions (`von.decide`)
 
 ```python
-import hop
+import von
 
-decision = hop.decide(
+decision = von.decide(
     "My card was charged twice for order #1234 and I want my money back!",
     choices=["billing_refund", "technical_bug", "feature_request"],
 )
@@ -58,12 +67,12 @@ print(decision.confidence)     # 0.85
 print(decision.probabilities)  # {'billing_refund': 0.88, 'technical_bug': 0.08, ...}
 ```
 
-### 2. Yes/No Probability Judgments (`hop.judge`)
+### 2. Yes/No Probability Judgments (`von.judge`)
 
 ```python
-import hop
+import von
 
-p_urgent = hop.judge(
+p_urgent = von.judge(
     "Production database is locked and customer writes are failing!",
     instructions="Is this an urgent or blocking production outage?",
 )
@@ -73,12 +82,12 @@ if p_urgent > 0.8:
     page_on_call()
 ```
 
-### 3. Continuous Scale Rating (`hop.rate`)
+### 3. Continuous Scale Rating (`von.rate`)
 
 ```python
-import hop
+import von
 
-rating = hop.rate(
+rating = von.rate(
     "The export button crashes only on Safari 17.2 with error code 4",
     criteria=[
         "Cosmetic; no impact on core functionality",
@@ -93,12 +102,12 @@ print(rating.confidence)  # 0.72
 
 ---
 
-## Speculative Fan-Out (`hop.system_one`)
+## Speculative Fan-Out (`von.system_one`)
 
 Ask all independent questions against your state in a single call. No latency multiplier:
 
 ```python
-import hop
+import von
 
 state = {
     "opportunity": "newsletter_sponsorship",
@@ -107,10 +116,10 @@ state = {
 }
 
 questions = {
-    "is_sponsor_inquiry": hop.noul(
+    "is_sponsor_inquiry": von.noul(
         instructions="Does `message` ask to sponsor the newsletter?"
     ),
-    "category": hop.choice(
+    "category": von.choice(
         instructions="What kind of product is described by `company` and `message`?",
         criteria={
             "dev_tool": "Developer tools, hosting, databases, APIs",
@@ -118,7 +127,7 @@ questions = {
             "unrelated": "Non-developer consumer products",
         },
     ),
-    "quality": hop.score(
+    "quality": von.score(
         instructions="How specific is the sponsorship request?",
         criteria=[
             "Generic pitch template, no concrete ask",
@@ -128,7 +137,7 @@ questions = {
     ),
 }
 
-res = hop.system_one(state=state, questions=questions)
+res = von.system_one(state=state, questions=questions)
 
 answers = res.answers
 print(answers["is_sponsor_inquiry"].noul)   # 0.98
@@ -142,12 +151,12 @@ if answers["is_sponsor_inquiry"].noul > 0.8 and answers["category"].choice == "d
 
 ---
 
-## Running the HTTP Server (`hop serve`)
+## Running the HTTP Server (`von serve`)
 
 Need a drop-in replacement for TypeSafe's cloud API? Start the local server:
 
 ```bash
-hop serve --port 8000 --host 0.0.0.0
+von serve --port 8000 --host 0.0.0.0
 ```
 
 ### Compatible with `curl` / TypeSafe SDKs:
@@ -156,7 +165,7 @@ hop serve --port 8000 --host 0.0.0.0
 curl -X POST http://localhost:8000/v1/systemone \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "hop-latest",
+    "model": "von-latest",
     "state": { "ticket": "Export button crashes settings page in Safari" },
     "questions": {
       "category": {
@@ -174,7 +183,7 @@ curl -X POST http://localhost:8000/v1/systemone \
 Response:
 ```json
 {
-  "model": "hop-1.0.0",
+  "model": "von-1.0.0",
   "answers": {
     "category": {
       "type": "choice",
@@ -199,10 +208,10 @@ Response:
 
 ```bash
 # Direct discrete classification
-hop decide "Server disk space is at 99%" -c "storage_alert,network_alert,auth_alert"
+von decide "Server disk space is at 99%" -c "storage_alert,network_alert,auth_alert"
 
 # Evaluate a full JSON payload
-hop eval request.json
+von eval request.json
 ```
 
 ---
@@ -214,6 +223,23 @@ See the [`examples/`](./examples/) directory for full production patterns:
 - [`examples/triage.py`](./examples/triage.py): Support ticket triage and routing trees.
 - [`examples/priority.py`](./examples/priority.py): Composite weighted scoring without prompt rewriting.
 - [`examples/intent_routing.py`](./examples/intent_routing.py): Reflex hammer model routing (DB lookup vs LLM vs Human).
+
+---
+
+## Credits & Prior Art
+
+Von builds upon and recognizes foundational open-source and research contributions:
+
+1. **DeepMostInnovations & The Original Open-Source Architecture:**
+   - Precedent for non-autoregressive decision models using reinforcement learning on sequence embeddings for turn-by-turn trajectory and probability prediction.
+   - Original Papers: [arXiv:2503.23303](https://arxiv.org/abs/2503.23303) and [arXiv:2510.01237](https://arxiv.org/abs/2510.01237).
+   - Hugging Face Model: [`DeepMostInnovations/sales-conversion-model-reinf-learning`](https://huggingface.co/DeepMostInnovations/sales-conversion-model-reinf-learning) and dataset [`DeepMostInnovations/saas-sales-conversations`](https://huggingface.co/datasets/DeepMostInnovations/saas-sales-conversations).
+   - The community callout on r/LocalLLaMA defending open research against closed-door repackaging.
+
+2. **Cactus Compute:**
+   - The **Needle 3** engine and `cactus-needle` package.
+   - Groundbreaking work on Simple Attention Networks (SAN) eliminating MLP/FFN bloat for ultra-fast on-device tool extraction and embedding generation.
+   - Repository: [github.com/cactus-compute/needle](https://github.com/cactus-compute/needle).
 
 ---
 

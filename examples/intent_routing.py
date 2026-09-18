@@ -1,16 +1,9 @@
-"""Example: Intent Routing & Model Gate using Hop.
+"""Example: Intent Routing & Model Gate using Von."""
 
-Routes requests to:
-- Deterministic database lookup (0 LLM cost)
-- Cheap LLM
-- Reasoning LLM
-- Human support agent
-"""
-
-import hop
+import von
 
 ROUTER_QUESTIONS = {
-    "intent": hop.choice(
+    "intent": von.choice(
         instructions="What does the author of `message` want?",
         criteria={
             "order_status": "Where is my order, has it shipped, tracking lookup",
@@ -19,7 +12,7 @@ ROUTER_QUESTIONS = {
             "complaint": "Unhappy with service or product, wants a resolution",
         },
     ),
-    "needs_reasoning": hop.score(
+    "needs_reasoning": von.score(
         instructions="How much thought does a good answer to `message` need?",
         criteria=[
             "A lookup or a one-line fact",
@@ -31,7 +24,7 @@ ROUTER_QUESTIONS = {
 
 
 def route_message(message: str) -> dict:
-    resp = hop.system_one(state={"message": message}, questions=ROUTER_QUESTIONS)
+    resp = von.system_one(state={"message": message}, questions=ROUTER_QUESTIONS)
     ans = resp.answers
 
     intent = ans["intent"]

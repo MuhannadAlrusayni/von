@@ -1,6 +1,6 @@
 import pytest
-import hop
-from hop.types import noul, choice, score
+import von
+from von.types import noul, choice, score
 
 
 def test_speculative_fanout():
@@ -24,8 +24,8 @@ def test_speculative_fanout():
         ]),
     }
 
-    resp = hop.system_one(state=state, questions=questions)
-    assert resp.model == "hop-1.0.0"
+    resp = von.system_one(state=state, questions=questions)
+    assert resp.model == "von-1.0.0"
     assert len(resp.answers) == 3
 
     assert resp.answers["category"].choice == "storage"

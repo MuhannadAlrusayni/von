@@ -1,12 +1,9 @@
-"""Example: Composite Scoring using Hop.
+"""Example: Composite Scoring using Von."""
 
-Ask multiple focused score questions and combine them using weights in code.
-"""
-
-import hop
+import von
 
 PRIORITY_QUESTIONS = {
-    "severity": hop.score(
+    "severity": von.score(
         instructions="How severe is the issue in `ticket`?",
         criteria=[
             "Cosmetic; no impact on functionality",
@@ -14,7 +11,7 @@ PRIORITY_QUESTIONS = {
             "Blocking issue; no workaround exists",
         ],
     ),
-    "frustration": hop.score(
+    "frustration": von.score(
         instructions="How frustrated is the author of `ticket`?",
         criteria=[
             "Calm, just stating facts",
@@ -22,7 +19,7 @@ PRIORITY_QUESTIONS = {
             "Very angry or threatening to leave",
         ],
     ),
-    "report_quality": hop.score(
+    "report_quality": von.score(
         instructions="How much does `ticket` give an engineer to work with?",
         criteria=[
             "No detail; just says something is broken",
@@ -35,7 +32,7 @@ PRIORITY_QUESTIONS = {
 
 
 def compute_priority(ticket: str) -> float:
-    resp = hop.system_one(state={"ticket": ticket}, questions=PRIORITY_QUESTIONS)
+    resp = von.system_one(state={"ticket": ticket}, questions=PRIORITY_QUESTIONS)
     ans = resp.answers
 
     # Normalize each score by its max level index

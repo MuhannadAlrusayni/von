@@ -1,7 +1,7 @@
-"""High-level convenience API for Hop."""
+"""High-level convenience API for Von."""
 
 from typing import Any, Dict, List, Optional, Union
-from .client import HopClient
+from .client import VonClient
 from .types import (
     Choice,
     ChoiceAnswer,
@@ -12,21 +12,21 @@ from .types import (
     SystemOneResponse,
 )
 
-_default_client: Optional[HopClient] = None
+_default_client: Optional[VonClient] = None
 
 
-def _get_default_client() -> HopClient:
+def _get_default_client() -> VonClient:
     global _default_client
     if _default_client is None:
-        _default_client = HopClient(local=True)
+        _default_client = VonClient(local=True)
     return _default_client
 
 
 def system_one(
     state: Any,
     questions: Dict[str, Union[Question, Dict[str, Any]]],
-    model: str = "hop-latest",
-    client: Optional[HopClient] = None,
+    model: str = "von-latest",
+    client: Optional[VonClient] = None,
 ) -> SystemOneResponse:
     """Evaluate state and questions using System One."""
     cli = client or _get_default_client()
@@ -37,7 +37,7 @@ def decide(
     state: Any,
     choices: Union[List[str], Dict[str, Optional[str]]],
     instructions: str = "Which option best describes the state?",
-    model: str = "hop-latest",
+    model: str = "von-latest",
 ) -> ChoiceAnswer:
     """Make a fast discrete decision among options."""
     if isinstance(choices, list):
@@ -54,7 +54,7 @@ def judge(
     state: Any,
     instructions: str,
     criteria: Optional[Dict[str, str]] = None,
-    model: str = "hop-latest",
+    model: str = "von-latest",
 ) -> float:
     """Evaluate a yes/no question and return the probability (0.0 to 1.0)."""
     q = Noul(instructions=instructions, criteria=criteria)
@@ -67,7 +67,7 @@ def rate(
     state: Any,
     criteria: List[Union[str, Dict[str, Any]]],
     instructions: str = "Rate where the state falls on this scale:",
-    model: str = "hop-latest",
+    model: str = "von-latest",
 ) -> ScoreAnswer:
     """Evaluate a state on an ordered multi-level scale."""
     q = Score(instructions=instructions, criteria=criteria)

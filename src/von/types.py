@@ -1,4 +1,4 @@
-"""Types and schemas for Hop decision primitives."""
+"""Types and schemas for Von decision primitives."""
 
 from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict

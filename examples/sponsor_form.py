@@ -1,11 +1,7 @@
-"""Example: Sponsor Form Triage using Hop.
-
-Direct implementation of the scenario from the article:
-Evaluating a sponsor inquiry with Noul, Choice, and Score in a single call.
-"""
+"""Example: Sponsor Form Triage using Von."""
 
 import json
-import hop
+import von
 
 state = {
     "opportunity": "link",
@@ -14,10 +10,10 @@ state = {
 }
 
 questions = {
-    "is_sponsor_inquiry": hop.noul(
+    "is_sponsor_inquiry": von.noul(
         instructions="Does `description` ask to sponsor the site or newsletter?"
     ),
-    "product_category": hop.choice(
+    "product_category": von.choice(
         instructions="What kind of product is described by `name` and `description`?",
         criteria={
             "dev_tool": "Developer tools, hosting, APIs, SaaS for developers",
@@ -25,7 +21,7 @@ questions = {
             "unrelated": "Anything not aimed at developers",
         },
     ),
-    "message_quality": hop.score(
+    "message_quality": von.score(
         instructions="How specific is the request?",
         criteria=[
             "Generic template, no reference to this site",
@@ -36,9 +32,9 @@ questions = {
 }
 
 # Run speculative fan-out (all 3 questions answered in one pass)
-response = hop.system_one(state=state, questions=questions)
+response = von.system_one(state=state, questions=questions)
 
-print("=== Hop Response ===")
+print("=== Von Response ===")
 print("Model:", response.model)
 print("Usage:", response.usage)
 print("\n=== Answers ===")

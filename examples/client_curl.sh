@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test hop HTTP server using curl (matches TypeSafe API format)
+# Test Von HTTP server using curl (matches TypeSafe API format)
 
 SERVER_URL=${1:-"http://localhost:8000"}
 
@@ -13,7 +13,7 @@ echo -e "\n3. Testing System One Decision..."
 curl -s -X POST "${SERVER_URL}/v1/systemone" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "hop-latest",
+    "model": "von-latest",
     "state": {
       "ticket": "My database crashed and customers cannot log in."
     },
