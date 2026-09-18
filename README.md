@@ -240,8 +240,16 @@ Response:
 ## CLI Tools
 
 ```bash
-# Direct discrete classification
+# Direct discrete classification (Choice)
 von decide "Server disk space is at 99%" -c "storage_alert,network_alert,auth_alert"
+
+# Yes/No judgment (Noul probability)
+von judge "Payment declined on checkout" -i "Is this a payment failure?"
+
+# Ordinal multi-level rating (Score)
+von rate "Server is dead and throwing 500 across all nodes" \
+  -l "Cosmetic issue, Minor slowdown, Catastrophic outage" \
+  -i "Rate outage severity:"
 
 # Evaluate a full JSON payload
 von eval request.json
