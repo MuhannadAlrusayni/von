@@ -10,12 +10,12 @@
 
 TypeSafe AI raised $40M to charge $0.042/1M tokens for what amounts to a **smart `if` statement** behind a closed-source cloud API waitlist.
 
-**Von** is 100% open-source and runs locally on your machine. Powered by the `cactus-needle` 3.x Simple Attention Network (SAN), Von strips out autoregressive text generation bloat to deliver pure, structured, calibrated decisions in **under 15 milliseconds** on a standard CPU.
+**Von** is 100% open-source and runs locally on your machine. Powered by **Von-1.0** (a 395M bidirectional ModernBERT encoder post-trained via Reinforcement Learning with Calibration Distribution), Von strips out autoregressive text generation bloat to deliver pure, structured, calibrated decisions in **sub-25ms on GPU and ~300ms on CPU**.
 
 - **Non-Autoregressive:** Evaluates all questions in a single forward pass.
+- **SOTA Accuracy:** **91.23%** on adversarial multi-hop reasoning (surpassing TypeSafe Jev's 88.3%).
 - **Zero Hallucinations:** Structurally guaranteed output types. No Markdown drift, no JSON formatting errors.
-- **Epistemically Calibrated:** Confidence scores and probability distributions that reflect statistical reality.
-- **14MB Binary:** Runs in ~28MB RAM on CPU. No GPU required.
+- **Epistemically Calibrated:** Confidence scores and probability distributions ($T = 1.0367$) that reflect statistical reality.
 - **Drop-in Jev Compatible:** Ships with an in-process SDK and a `von serve` HTTP server matching TypeSafe's `POST /v1/systemone` wire protocol.
 
 ---
@@ -28,35 +28,15 @@ Named in homage to two giants of decision theory and computation:
 
 ---
 
-## Multiple Backends
-
-Von supports multiple distinct backends depending on your latency, memory, and accuracy requirements:
-
-```python
-import von
-
-# 1. Von-1.0 (Flagship Neural Engine): ModernBERT-Large RLCD (91.23% validation accuracy, sub-25ms GPU / ~300ms CPU)
-von.set_backend("von-1.0")
-
-# 2. Needle (Lightweight Operational Triage): 14MB footprint, sub-15ms on pure CPU, 0MB VRAM
-von.set_backend("needle")
-
-# 3. DeBERTa-v3: High-capacity multi-hop cross-encoder
-von.set_backend("berta-v3")
-```
-
 ### Benchmark Comparison
 
-| Model / Backend | Architecture | Params / Size | Val Accuracy | Latency (GPU) | Latency (CPU) | Cost |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von-1.0** (Ours) | ModernBERT-Large RLCD | **395M / 1.5GB** | **91.23%** 🏆 | **~25 ms** | **~300 ms** | **Free / Local** |
-| **TypeSafe Jev** | Proprietary Cloud MoE | ~8B–14B* | 88.30% | ~150–300 ms | N/A (Cloud) | $0.042 / 1M |
-| **OpenJev (Qwen3.5-4B)**| Parallel Constrained Decoding | 4,000M / 3.0GB | 81.30% | ~48 ms | ~1,800 ms | Free (8GB VRAM) |
-| **DeBERTa-v3-Large** | Cross-Encoder NLI | 435M / 1.7GB | 77.40% | ~90 ms | ~4,200 ms | Free / Local |
-| **Laya** | ModernBERT-Large | 421M / 1.6GB | 70.30% | ~45 ms | ~450 ms | Free / Local |
-| **Von (`needle`)** | Simple Attention Network (SAN) | **14 MB** | **52.60%** | **~15 ms** | **~15 ms** | **Free / 0MB VRAM** |
+| Model | Accuracy | Latency (GPU) | Latency (CPU) | Cost |
+| :--- | :--- | :--- | :--- | :--- |
+| **Von-1.0** (Ours) | **91.23%** 🏆 | **~25 ms** | **~300 ms** | **Free / Local** |
+| **TypeSafe Jev** | 88.30% | Network Latency | N/A (Cloud Only) | $0.042 / 1M tokens |
+| **OpenJev (Qwen3.5-4B)** | 81.30% | ~48 ms | ~1,800 ms | Free / Local |
 
-*\* Jev weight estimate based on Archer Hume's reverse-engineering analysis across 10,000 API calls, indicating a causal sparse MoE backbone (~8B–14B total parameters, ~2B active parameters).*
+---
 
 ---
 
@@ -330,23 +310,16 @@ See the [`examples/`](./examples/) directory for full production patterns:
 
 ## Credits & Prior Art
 
-Von builds upon and recognizes foundational open-source and research contributions:
+Von builds upon foundational open-source and research contributions:
 
-1. **DeepMostInnovations & Convai Innovations (Laya):**
-   - Precedent for non-autoregressive decision models using reinforcement learning on sequence embeddings for turn-by-turn trajectory and probability prediction.
-   - Original Papers: [arXiv:2503.23303](https://arxiv.org/abs/2503.23303) and [arXiv:2510.01237](https://arxiv.org/abs/2510.01237).
-   - Laya Model & Package: [`convaiinnovations/laya`](https://huggingface.co/convaiinnovations/laya) and [`laya` on PyPI](https://pypi.org/project/laya/).
-   - Hugging Face Model: [`DeepMostInnovations/sales-conversion-model-reinf-learning`](https://huggingface.co/DeepMostInnovations/sales-conversion-model-reinf-learning) and dataset [`DeepMostInnovations/saas-sales-conversations`](https://huggingface.co/datasets/DeepMostInnovations/saas-sales-conversations).
-   - The community callout on r/LocalLLaMA defending open research against closed-door repackaging.
+1. **DeepMostInnovations:**
+   - Foundational papers on non-autoregressive decision modeling and reinforcement learning on sequence embeddings for probability prediction: [arXiv:2503.23303](https://arxiv.org/abs/2503.23303) and [arXiv:2510.01237](https://arxiv.org/abs/2510.01237).
 
-2. **Cactus Compute:**
-   - The **Needle 3** engine and `cactus-needle` package.
-   - Groundbreaking work on Simple Attention Networks (SAN) eliminating MLP/FFN bloat for ultra-fast on-device tool extraction and embedding generation.
-   - Repository: [github.com/cactus-compute/needle](https://github.com/cactus-compute/needle).
+2. **Answer.AI & LightOn (ModernBERT):**
+   - ModernBERT architecture: 8,192 token context, unpadded FlashAttention-2, and modern bidirectional representation.
 
 3. **Archer Hume:**
-   - Reverse-engineering analysis across 10,000 API calls documenting Jev's internal architecture, shared KV prefill, parallel causal branching, and sparse MoE backbone.
-   - Analysis: ["Jev's Architecture Unmasked"](https://archerhume.com/posts/jevs-architecture-unmasked/?v=3).
+   - Reverse-engineering analysis across 10,000 API calls documenting Jev's internal architecture, shared KV prefill, parallel causal branching, and sparse MoE backbone: ["Jev's Architecture Unmasked"](https://archerhume.com/posts/jevs-architecture-unmasked/?v=3).
 
 ---
 

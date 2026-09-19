@@ -30,8 +30,6 @@ def test_presets_structure():
 
 
 def test_patterns_route():
-    von.set_backend("needle")
-
     state = "The customer wants an immediate refund for their unused subscription."
     q = Choice(
         instructions="Route customer request",
@@ -55,14 +53,12 @@ def test_patterns_route():
         state,
         question=q,
         routes={"refund": handle_refund, "support": handle_support},
-        backend="needle"
     )
     assert res == "REFUND_PROCESSED"
     assert dispatched == ["refund_handled"]
 
 
 def test_patterns_confidence_gate():
-    von.set_backend("needle")
     state = "Urgent: database cluster crashed, connection pool completely exhausted."
     questions = {
         "is_outage": Noul(
@@ -72,14 +68,13 @@ def test_patterns_confidence_gate():
         )
     }
 
-    gated = confidence_gate(state, questions, threshold=0.1, backend="needle")
+    gated = confidence_gate(state, questions, threshold=0.1)
     assert "automatic" in gated
     assert "escalate" in gated
     assert len(gated["automatic"]) + len(gated["escalate"]) == 1
 
 
 def test_patterns_composite_score():
-    von.set_backend("needle")
     state = "Catastrophic multi-region outage affecting all enterprise payments and databases."
     questions = {
         "severity": Score(
@@ -93,7 +88,7 @@ def test_patterns_composite_score():
         )
     }
 
-    scored = composite_score(state, questions, backend="needle")
+    scored = composite_score(state, questions)
     assert "score" in scored
     assert 0.0 <= scored["score"] <= 1.0
     assert "breakdown" in scored

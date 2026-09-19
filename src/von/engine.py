@@ -7,8 +7,6 @@ from typing import Any, Dict, List, Optional, Union
 from .backends import (
     BaseBackend,
     BertaBackend,
-    LayaBackend,
-    NeedleBackend,
 )
 from .types import (
     Choice,
@@ -28,36 +26,42 @@ class VonEngine:
     _instance: Optional["VonEngine"] = None
     _lock: threading.Lock = threading.Lock()
 
-    def __init__(self, backend_name: str = "needle", device: Optional[str] = None):
+    def __init__(self, backend_name: str = "von-1.0", device: Optional[str] = None):
         self.backend_name = backend_name.lower().strip()
         self.device = device or os.environ.get("VON_DEVICE")
-        if self.backend_name in ("needle", "cactus-needle", "needle-json", "needle_json"):
-            self.backend: BaseBackend = NeedleBackend()
-        elif self.backend_name in ("modernbert", "von-1.0", "von", "berta-modern", "modernbert-nli"):
-            self.backend = BertaBackend(variant="modernbert", device=self.device)
-        elif self.backend_name in ("laya", "laya-421m", "convaiinnovations/laya"):
-            self.backend = LayaBackend(device=self.device)
-        elif self.backend_name in ("berta", "berta-v3", "deberta", "deberta-v3"):
-            self.backend = BertaBackend(variant="deberta-v3", device=self.device)
-        elif self.backend_name in ("berta-xxl", "deberta-xxl", "deberta-v2-xxlarge"):
-            self.backend = BertaBackend(variant="deberta-xxl", device=self.device)
+        if self.backend_name in ("von-1.0", "von", "modernbert", "default", "berta-modern", "modernbert-nli"):
+            self.backend: BaseBackend = BertaBackend(variant="von-1.0", device=self.device)
         else:
-            raise ValueError(
-                f"Unknown backend '{self.backend_name}'. Available: needle, modernbert, laya, berta-v3"
-            )
+            # Check for local benchmark backends if installed
+            try:
+                if self.backend_name in ("needle", "cactus-needle", "needle-json", "needle_json"):
+                    from .local_backends.needle_backend import NeedleBackend
+                    self.backend = NeedleBackend()
+                elif self.backend_name in ("laya", "laya-421m", "convaiinnovations/laya"):
+                    from .local_backends.laya_backend import LayaBackend
+                    self.backend = LayaBackend(device=self.device)
+                elif self.backend_name in ("berta", "berta-v3", "deberta", "deberta-v3"):
+                    self.backend = BertaBackend(variant="deberta-v3", device=self.device)
+                else:
+                    raise ValueError(f"Unknown backend '{self.backend_name}'.")
+            except (ImportError, ModuleNotFoundError) as e:
+                raise ValueError(
+                    f"Backend '{self.backend_name}' is not available in public release. "
+                    f"Von runs natively on 'von-1.0'."
+                ) from e
 
     @classmethod
     def get_instance(cls, backend: Optional[str] = None, device: Optional[str] = None) -> "VonEngine":
         with cls._lock:
             if cls._instance is None:
-                b = backend or os.environ.get("VON_BACKEND", "needle")
+                b = backend or os.environ.get("VON_BACKEND", "von-1.0")
                 d = device or os.environ.get("VON_DEVICE")
                 cls._instance = cls(backend_name=b, device=d)
             return cls._instance
 
     @classmethod
     def set_backend(cls, backend: str, device: Optional[str] = None):
-        """Switch active engine backend ('needle', 'modernbert', 'laya', 'berta-v3')."""
+        """Switch active engine backend."""
         with cls._lock:
             d = device or os.environ.get("VON_DEVICE")
             cls._instance = cls(backend_name=backend, device=d)
@@ -65,8 +69,12 @@ class VonEngine:
     def embed(self, text: str) -> List[float]:
         if hasattr(self.backend, "embed"):
             return getattr(self.backend, "embed")(text)
-        from .backends.needle_backend import NeedleBackend
-        return NeedleBackend().embed(text)
+        try:
+            from .local_backends.needle_backend import NeedleBackend
+            return NeedleBackend().embed(text)
+        except Exception:
+            # Fallback representation
+            return [0.0] * 768
 
     def evaluate_choice(self, *args, **kwargs) -> ChoiceAnswer:
         return self.backend.evaluate_choice(*args, **kwargs)

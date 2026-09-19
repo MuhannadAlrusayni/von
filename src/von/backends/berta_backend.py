@@ -316,7 +316,10 @@ class BertaBackend(BaseBackend):
 
         input_tokens = max(1, (len(state_str) + total_q_chars) // 4)
         output_tokens = len(answers) * 8
-        resolved_model = f"von-{self.variant}" if model not in ("von-latest", "von-preview", "jev-latest", "jev-preview", None) else "von-1.0.0"
+        if model in ("von-latest", "von-preview", "von-1.0.0", "von-1.0", "jev-latest", "jev-preview", None):
+            resolved_model = "von-1.0.0"
+        else:
+            resolved_model = model
 
         return SystemOneResponse(
             model=resolved_model,
