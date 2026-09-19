@@ -27,7 +27,7 @@ width = 0.26
 
 # Set dark technical aesthetic
 plt.style.use("dark_background")
-fig, ax = plt.subplots(figsize=(13, 6.5), dpi=300)
+fig, ax = plt.subplots(figsize=(13.5, 7.2), dpi=300)
 fig.patch.set_facecolor("#0b0f17")
 ax.set_facecolor("#0b0f17")
 
@@ -65,28 +65,32 @@ rects3 = ax.bar(
 
 # Axis styling
 ax.set_ylabel("Accuracy (%)", fontsize=12, fontweight="bold", color="#f1f5f9", labelpad=12)
-ax.set_title(
+ax.set_xticks(x)
+ax.set_xticklabels(categories, fontsize=9.5, color="#cbd5e1", fontweight="500")
+ax.set_ylim(30, 115)
+ax.grid(axis="y", linestyle="--", alpha=0.15, color="#94a3b8", zorder=0)
+
+# Place legend centered at the top OUTSIDE the plot area to guarantee zero bar overlap
+legend = ax.legend(
+    loc="lower center",
+    bbox_to_anchor=(0.5, 1.01),
+    ncol=3,
+    frameon=True,
+    facecolor="#1e293b",
+    edgecolor="#334155",
+    fontsize=10.5,
+    labelcolor="#f8fafc",
+)
+legend.get_frame().set_linewidth(1.0)
+
+# Title placed above the legend
+fig.suptitle(
     "Decision Model Benchmark: Von-1.0 vs GLiNER2 vs TypeSafe Jev\n(Independent Peer Benchmark: jabr/classifier-benchmark)",
     fontsize=14,
     fontweight="bold",
     color="#ffffff",
-    pad=18,
+    y=0.98,
 )
-ax.set_xticks(x)
-ax.set_xticklabels(categories, fontsize=9.5, color="#cbd5e1", fontweight="500")
-ax.set_ylim(30, 108)
-ax.grid(axis="y", linestyle="--", alpha=0.15, color="#94a3b8", zorder=0)
-
-# Legend styling
-legend = ax.legend(
-    loc="upper left",
-    frameon=True,
-    facecolor="#1e293b",
-    edgecolor="#334155",
-    fontsize=10,
-    labelcolor="#f8fafc",
-)
-legend.get_frame().set_linewidth(1.0)
 
 
 # Value annotations
@@ -110,7 +114,7 @@ annotate_bars(rects1, "#00e5ff")
 annotate_bars(rects2, "#c084fc")
 annotate_bars(rects3, "#94a3b8")
 
-plt.tight_layout()
+plt.tight_layout(rect=[0, 0, 1, 0.93])
 output_path = "assets/benchmark_comparison.png"
 plt.savefig(output_path, dpi=300, facecolor=fig.get_facecolor(), edgecolor="none")
 print(f"Chart generated successfully: {output_path}")
