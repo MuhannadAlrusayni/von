@@ -32,7 +32,7 @@ rects1 = ax.bar(
     x - width / 2,
     von_scores,
     width,
-    label="Von-1.0 (Ours - ModernBERT RLCD)",
+    label="Von-1.0 (ModernBERT RLCD)",
     color="#00e5ff",
     edgecolor="#00b4d8",
     linewidth=1.2,

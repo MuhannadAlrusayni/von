@@ -31,7 +31,7 @@ Evaluated across the 144 adversarial multi-hop natural language inference stress
 
 | Model | Model Size | Accuracy | GPU Latency | CPU Latency | Hosting / Pricing |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von-1.0** (Ours) | **395M params (1.5 GB)** | **91.23%** 🏆 | **~25 ms** | **~300 ms** | **Local / Free (Apache 2.0)** |
+| **Von-1.0** | **395M params (1.5 GB)** | **91.23%** | **~25 ms** | **~300 ms** | **Local / Free (Apache 2.0)** |
 | **TypeSafe Jev** | Proprietary | 88.30% | Network Latency | N/A (Cloud Only) | $0.042 / 1M tokens |
 
 *Validation accuracy measured on the balanced held-out multi-hop adversarial split (ANLI Rounds 1–3, WANLI, MultiNLI, and SNLI).*
@@ -42,14 +42,14 @@ Evaluated across the 144 adversarial multi-hop natural language inference stress
 
 ### Task Category Breakdown
 
-| Decision Task / Category | Evaluation Objective | Von-1.0 (Ours) | TypeSafe Jev | Margin (Δ) |
+| Decision Task / Category | Evaluation Objective | Von-1.0 | TypeSafe Jev | Margin (Δ) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Adversarial Multi-Hop Reasoning** | Negation handling & premise-hypothesis deduction (ANLI/WANLI) | **91.23%** 🏆 | 88.30% | **+2.93%** |
-| **Customer Support Intent Triage** | Multi-class operational queue and ticket routing | **94.60%** 🏆 | 91.80% | **+2.80%** |
-| **Guardrails & Policy Verification** | Content safety compliance & policy constraint checks | **93.10%** 🏆 | 89.50% | **+3.60%** |
-| **Binary Condition Gating (`Noul`)** | Calibrated Yes/No probability verification | **92.80%** 🏆 | 90.20% | **+2.60%** |
-| **Continuous Severity Rating (`Score`)** | Ordinal rubric calibration & Brier score alignment | **89.40%** 🏆 | 86.10% | **+3.30%** |
-| **Macro Benchmark Average** | Comprehensive cross-domain evaluation | **92.23%** 🏆 | 89.18% | **+3.05%** |
+| **Adversarial Multi-Hop Reasoning** | Negation handling & premise-hypothesis deduction (ANLI/WANLI) | **91.23%** | 88.30% | **+2.93%** |
+| **Customer Support Intent Triage** | Multi-class operational queue and ticket routing | **94.60%** | 91.80% | **+2.80%** |
+| **Guardrails & Policy Verification** | Content safety compliance & policy constraint checks | **93.10%** | 89.50% | **+3.60%** |
+| **Binary Condition Gating (`Noul`)** | Calibrated Yes/No probability verification | **92.80%** | 90.20% | **+2.60%** |
+| **Continuous Severity Rating (`Score`)** | Ordinal rubric calibration & Brier score alignment | **89.40%** | 86.10% | **+3.30%** |
+| **Macro Benchmark Average** | Comprehensive cross-domain evaluation | **92.23%** | 89.18% | **+3.05%** |
 
 ---
 
