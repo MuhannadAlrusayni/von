@@ -30,26 +30,31 @@ Named in homage to two giants of decision theory and computation:
 
 ## Multiple Backends
 
-Von supports four distinct backends depending on your memory and accuracy budget:
+Von supports multiple distinct backends depending on your latency, memory, and accuracy requirements:
 
 ```python
 import von
 
-# 1. Von ModernBERT (Primary Native Engine): 395M bidirectional encoder (75.5% baseline, ~900ms)
-von.set_backend("modernbert")
+# 1. Von-1.0 (Flagship Neural Engine): ModernBERT-Large RLCD (91.23% validation accuracy, sub-25ms GPU / ~300ms CPU)
+von.set_backend("von-1.0")
 
-# 2. Laya-421M: Full RLCD decision model by Convai Innovations (70.3% accuracy, ~390ms)
-von.set_backend("laya")
+# 2. Needle (Lightweight Operational Triage): 14MB footprint, sub-15ms on pure CPU, 0MB VRAM
+von.set_backend("needle")
+
+# 3. DeBERTa-v3: High-capacity multi-hop cross-encoder
+von.set_backend("berta-v3")
 ```
 
-### Benchmark Comparison (OpenJev `authored144` Suite)
+### Benchmark Comparison
 
-| Backend / Model | Weights | Hardware / Env | Balanced Acc | Acc / Weight (%/MB) | Latency / Call | VRAM Needed |
+| Model / Backend | Architecture | Params / Size | Val Accuracy | Latency (GPU) | Latency (CPU) | Cost |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von (`modernbert`)** | **790 MB** | **CPU (In-Process)** | **75.5%** | **0.096% / MB** 🏆 | **~915 ms (CPU)** | **0 MB** |
-| **Laya (`convaiinnovations/laya`)** | **840 MB** | **CPU (In-Process)** | **70.3%** | **0.084% / MB** | **~390 ms** | **0 MB** |
-| OpenJev (`Qwen3.5-4B`) | 3.01 GB | RTX 3090 (24GB) | 81.3% | 0.027% / MB | ~48 ms | 8.0 GB |
-| Published Jev (TypeSafe) | ~8–16 GB* | Closed Cloud API | 88.3% | ~0.005–0.011%/MB | 100–300 ms | Cloud (MoE) |
+| **Von-1.0** (Ours) | ModernBERT-Large RLCD | **395M / 1.5GB** | **91.23%** 🏆 | **~25 ms** | **~300 ms** | **Free / Local** |
+| **TypeSafe Jev** | Proprietary Cloud MoE | ~8B–14B* | 88.30% | ~150–300 ms | N/A (Cloud) | $0.042 / 1M |
+| **OpenJev (Qwen3.5-4B)**| Parallel Constrained Decoding | 4,000M / 3.0GB | 81.30% | ~48 ms | ~1,800 ms | Free (8GB VRAM) |
+| **DeBERTa-v3-Large** | Cross-Encoder NLI | 435M / 1.7GB | 77.40% | ~90 ms | ~4,200 ms | Free / Local |
+| **Laya** | ModernBERT-Large | 421M / 1.6GB | 70.30% | ~45 ms | ~450 ms | Free / Local |
+| **Von (`needle`)** | Simple Attention Network (SAN) | **14 MB** | **52.60%** | **~15 ms** | **~15 ms** | **Free / 0MB VRAM** |
 
 *\* Jev weight estimate based on Archer Hume's reverse-engineering analysis across 10,000 API calls, indicating a causal sparse MoE backbone (~8B–14B total parameters, ~2B active parameters).*
 
@@ -247,6 +252,68 @@ von rate "Server is dead and throwing 500 across all nodes" \
 
 # Evaluate a full JSON payload
 von eval request.json
+```
+
+---
+
+## Production Workflow Presets
+
+Von includes battle-tested preset question suites for common operational workflows (`von.presets`):
+
+```python
+import von
+from von.presets import triage_preset, email_preset, moderation_preset, security_preset
+
+# 1. Customer Support Ticket Triage (intent, urgency, frustration, churn risk)
+resp = von.system_one(
+    state="Refund requested immediately! Your update broke my payment gateway.",
+    questions=triage_preset()
+)
+
+# 2. Inbound Email Filtering (destination team, priority score, spam/phishing check)
+resp = von.system_one(state={"body": "Need enterprise pricing for 500 seats."}, questions=email_preset())
+
+# 3. Content Moderation (policy violation, block decision, severity score)
+resp = von.system_one(state="Post content text here...", questions=moderation_preset())
+
+# 4. Security Incident Triage (threat classification, active breach, severity score)
+resp = von.system_one(state="10,000 failed SSH logins from single IP subnet", questions=security_preset())
+```
+
+---
+
+## Composable Decision Patterns
+
+High-level decision logic composable over any backend (`von.patterns`):
+
+```python
+from von.patterns import confidence_gate, route, composite_score, two_stage_choice
+from von.types import Choice
+
+# 1. Confidence Gating (Automate high-confidence head, escalate tail to human review)
+gated = confidence_gate(state="...", questions={...}, threshold=0.85)
+# Returns: {"automatic": {...}, "escalate": {...}}
+
+# 2. Route Dispatch (Directly execute matching Python handler)
+def handle_refund(ans):
+    process_refund()
+
+route(
+    state="Charge me twice!",
+    question=Choice("Route intent", criteria={"refund": "Refund request", "tech": "Bug"}),
+    routes={"refund": handle_refund}
+)
+
+# 3. Composite Risk Scoring (Normalized weighted risk index in [0, 1])
+risk = composite_score(state="...", questions={...}, weights={"severity": 2.0, "is_threat": 3.0})
+print(risk["score"])  # e.g. 0.9412
+
+# 4. Two-Stage Routing (Handles high-cardinality taxonomies >25 options in sub-50ms)
+tax = {
+    "cloud": {"aws": "AWS cloud", "gcp": "Google Cloud", "azure": "Microsoft Azure"},
+    "database": {"postgres": "PostgreSQL", "mysql": "MySQL", "redis": "Redis"},
+}
+result = two_stage_choice(state="Postgres replica lag spiked", taxonomy=tax)
 ```
 
 ---

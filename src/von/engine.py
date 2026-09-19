@@ -33,7 +33,7 @@ class VonEngine:
         self.device = device or os.environ.get("VON_DEVICE")
         if self.backend_name in ("needle", "cactus-needle", "needle-json", "needle_json"):
             self.backend: BaseBackend = NeedleBackend()
-        elif self.backend_name in ("modernbert", "berta-modern", "modernbert-nli", "von"):
+        elif self.backend_name in ("modernbert", "von-1.0", "von", "berta-modern", "modernbert-nli"):
             self.backend = BertaBackend(variant="modernbert", device=self.device)
         elif self.backend_name in ("laya", "laya-421m", "convaiinnovations/laya"):
             self.backend = LayaBackend(device=self.device)

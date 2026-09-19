@@ -19,6 +19,8 @@ from .types import (
 )
 from .client import VonClient, AsyncVonClient
 from .api import system_one, decide, judge, rate, set_backend
+from . import presets
+from . import patterns
 
 __version__ = "1.0.0"
 
@@ -41,4 +43,6 @@ __all__ = [
     "judge",
     "rate",
     "set_backend",
+    "presets",
+    "patterns",
 ]
