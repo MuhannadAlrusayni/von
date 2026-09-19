@@ -31,11 +31,11 @@ Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmar
 
 | Model | Model Size | Macro Acc | Micro Acc | MPS / GPU Latency | CPU Latency | Hosting / Pricing |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von-1.0 (v1.0.1)** | **395M params (1.5 GB)** | **81.6%** | **82.1%** | **~62 ms** | **~300 ms** | **Local / Free (Apache 2.0)** |
+| **Von-1.0** (Current) | **395M params (1.5 GB)** | **93.0%** | **92.3%** | **~62 ms** | **~300 ms** | **Local / Free (Apache 2.0)** |
 | **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 78.5% | 79.5% | ~93 ms | ~500 ms | Local / Free (Apache 2.0) |
 | **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary | 97.2% | 97.4% | ~302 ms (API) | N/A (Cloud Only) | $0.042 / 1M tokens |
 
-*Measured on Apple MPS and CPU across 78 test cases. Academic NLI validation split convergence: 91.23% on ANLI+WANLI+MNLI+SNLI.*
+*Measured on Apple MPS and CPU across 78 test cases. Validation accuracy on held-out decision split: 96.43% ($T = 1.1692$).*
 
 <p align="center">
   <img src="assets/benchmark_comparison.png" alt="Von-1.0 vs GLiNER2 vs TypeSafe Jev Task Breakdown" width="850">
@@ -43,18 +43,18 @@ Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmar
 
 ### Task Breakdown
 
-| Decision Task | Primitive Type | Von-1.0 (v1.0.1) | GLiNER2 | TypeSafe Jev | Notes |
+| Decision Task | Primitive Type | Von-1.0 | GLiNER2 | TypeSafe Jev | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **support_department** | Choice (5-way) | **0.933** | **0.933** | 1.000 | Tied with GLiNER2 (14/15) |
-| **email_intent** | Choice (5-way) | **1.000** | 0.900 | **1.000** | Tied with Jev, beats GLiNER2 (10/10) |
-| **secret_leak** | Noul (Binary) | **1.000** | 0.500 | **1.000** | Tied with Jev, beats GLiNER2 (8/8) |
-| **urgency** | Noul (Binary) | **0.750** | 1.000 | 1.000 | Strong time-sensitivity gating (6/8) |
-| **refund_eligible** | Noul (Binary) | **0.400** | 0.500 | 1.000 | Unstated policy compliance gap |
-| **frustration_level** | Score (3-level) | **0.778** | 1.000 | 1.000 | Clean emotional severity rating (7/9) |
-| **incident_severity** | Score (5-level) | **0.778** | 0.556 | **0.778** | Tied with Jev, beats GLiNER2 (7/9) |
-| **review_sentiment** | Score (5-level) | **0.889** | **0.889** | 1.000 | Tied with GLiNER2 (8/9) |
-| **Macro Average** | Across 8 tasks | **0.816** | 0.785 | **0.972** | **Von beats GLiNER2 (+3.1%)** |
-| **Micro Average** | Across 78 cases | **0.821** | 0.795 | **0.974** | **Von beats GLiNER2 (+2.6%)** |
+| **support_department** | Choice (5-way) | **0.867** | **0.933** | 1.000 | 13/15 correct queue routing |
+| **email_intent** | Choice (5-way) | **1.000** | 0.900 | **1.000** | Perfect 10/10 intent triage |
+| **secret_leak** | Noul (Binary) | **0.875** | 0.500 | **1.000** | 7/8 correct credential detection |
+| **urgency** | Noul (Binary) | **1.000** | **1.000** | **1.000** | Perfect 8/8 outage & time gating |
+| **refund_eligible** | Noul (Binary) | **0.700** | 0.500 | **1.000** | Temporal policy verification (7/10) |
+| **frustration_level** | Score (3-level) | **1.000** | **1.000** | **1.000** | Perfect 9/9 customer emotion calibration |
+| **incident_severity** | Score (5-level) | **1.000** | 0.556 | 0.778 | **Beats Jev & GLiNER2 (9/9 perfect)** |
+| **review_sentiment** | Score (5-level) | **1.000** | 0.889 | **1.000** | Perfect 9/9 5-star sentiment rating |
+| **Macro Average** | Across 8 tasks | **0.930** | 0.785 | **0.972** | **Von beats GLiNER2 (+14.5%)** |
+| **Micro Average** | Across 78 cases | **0.923** | 0.795 | **0.974** | **Von beats GLiNER2 (+12.8%)** |
 
 ---
 
@@ -67,7 +67,7 @@ Computes a normalized probability distribution over a set of $K$ mutually exclus
 
 $$P(c_k \mid S, Q) = \frac{\exp(z_k / T)}{\sum_{j=1}^K \exp(z_j / T)}$$
 
-Where $S$ is the observed state, $Q$ is the question specification, $z_k$ is the logit assigned to hypothesis $c_k$, and $T = 1.0367$ is the calibration temperature. The confidence metric corresponds to the difference between the top two probabilities:
+Where $S$ is the observed state, $Q$ is the question specification, $z_k$ is the logit assigned to hypothesis $c_k$, and $T = 1.1692$ is the calibration temperature. The confidence metric corresponds to the difference between the top two probabilities:
 
 $$\text{Confidence} = P(c_{(1)}) - P(c_{(2)})$$
 
@@ -111,7 +111,7 @@ Post-training calibration is achieved by fitting an empirical temperature scalar
 
 $$\min_T -\sum_{i=1}^N \log \left( \frac{\exp(z_{i, y_i} / T)}{\sum_j \exp(z_{i, j} / T)} \right)$$
 
-Optimization converged at **$T = 1.0367$**, yielding near-ideal expected calibration error (ECE) without degrading classification margin.
+Optimization converged at **$T = 1.1692$**, yielding near-ideal expected calibration error (ECE) without degrading classification margin.
 
 ---
 
