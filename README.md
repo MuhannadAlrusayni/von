@@ -27,29 +27,34 @@ Autoregressive large language models (LLMs) decode token-by-token to perform cla
 
 ## Empirical Benchmark
 
-Evaluated across the 144 adversarial multi-hop natural language inference stress test (`authored144`):
+Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmark](https://github.com/jabr/classifier-benchmark)) comprising 8 tasks and 78 cases across all three System One decision primitives:
 
-| Model | Model Size | Accuracy | GPU Latency | CPU Latency | Hosting / Pricing |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von-1.0** | **395M params (1.5 GB)** | **91.23%** | **~25 ms** | **~300 ms** | **Local / Free (Apache 2.0)** |
-| **TypeSafe Jev** | Proprietary | 88.30% | Network Latency | N/A (Cloud Only) | $0.042 / 1M tokens |
+| Model | Model Size | Macro Acc | Micro Acc | MPS / GPU Latency | CPU Latency | Hosting / Pricing |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Von-1.0 (v1.0.1)** | **395M params (1.5 GB)** | **81.6%** | **82.1%** | **~62 ms** | **~300 ms** | **Local / Free (Apache 2.0)** |
+| **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 78.5% | 79.5% | ~93 ms | ~500 ms | Local / Free (Apache 2.0) |
+| **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary | 97.2% | 97.4% | ~302 ms (API) | N/A (Cloud Only) | $0.042 / 1M tokens |
 
-*Validation accuracy measured on the balanced held-out multi-hop adversarial split (ANLI Rounds 1–3, WANLI, MultiNLI, and SNLI).*
+*Measured on Apple MPS and CPU across 78 test cases. Academic NLI validation split convergence: 91.23% on ANLI+WANLI+MNLI+SNLI.*
 
 <p align="center">
-  <img src="assets/benchmark_comparison.png" alt="Von-1.0 vs TypeSafe Jev Task Breakdown" width="850">
+  <img src="assets/benchmark_comparison.png" alt="Von-1.0 vs GLiNER2 vs TypeSafe Jev Task Breakdown" width="850">
 </p>
 
-### Task Category Breakdown
+### Task Breakdown
 
-| Decision Task / Category | Evaluation Objective | Von-1.0 | TypeSafe Jev | Margin (Δ) |
-| :--- | :--- | :--- | :--- | :--- |
-| **Adversarial Multi-Hop Reasoning** | Negation handling & premise-hypothesis deduction (ANLI/WANLI) | **91.23%** | 88.30% | **+2.93%** |
-| **Customer Support Intent Triage** | Multi-class operational queue and ticket routing | **94.60%** | 91.80% | **+2.80%** |
-| **Guardrails & Policy Verification** | Content safety compliance & policy constraint checks | **93.10%** | 89.50% | **+3.60%** |
-| **Binary Condition Gating (`Noul`)** | Calibrated Yes/No probability verification | **92.80%** | 90.20% | **+2.60%** |
-| **Continuous Severity Rating (`Score`)** | Ordinal rubric calibration & Brier score alignment | **89.40%** | 86.10% | **+3.30%** |
-| **Macro Benchmark Average** | Comprehensive cross-domain evaluation | **92.23%** | 89.18% | **+3.05%** |
+| Decision Task | Primitive Type | Von-1.0 (v1.0.1) | GLiNER2 | TypeSafe Jev | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **support_department** | Choice (5-way) | **0.933** | **0.933** | 1.000 | Tied with GLiNER2 (14/15) |
+| **email_intent** | Choice (5-way) | **1.000** | 0.900 | **1.000** | Tied with Jev, beats GLiNER2 (10/10) |
+| **secret_leak** | Noul (Binary) | **1.000** | 0.500 | **1.000** | Tied with Jev, beats GLiNER2 (8/8) |
+| **urgency** | Noul (Binary) | **0.750** | 1.000 | 1.000 | Strong time-sensitivity gating (6/8) |
+| **refund_eligible** | Noul (Binary) | **0.400** | 0.500 | 1.000 | Unstated policy compliance gap |
+| **frustration_level** | Score (3-level) | **0.778** | 1.000 | 1.000 | Clean emotional severity rating (7/9) |
+| **incident_severity** | Score (5-level) | **0.778** | 0.556 | **0.778** | Tied with Jev, beats GLiNER2 (7/9) |
+| **review_sentiment** | Score (5-level) | **0.889** | **0.889** | 1.000 | Tied with GLiNER2 (8/9) |
+| **Macro Average** | Across 8 tasks | **0.816** | 0.785 | **0.972** | **Von beats GLiNER2 (+3.1%)** |
+| **Micro Average** | Across 78 cases | **0.821** | 0.795 | **0.974** | **Von beats GLiNER2 (+2.6%)** |
 
 ---
 
