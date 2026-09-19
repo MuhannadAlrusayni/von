@@ -114,9 +114,12 @@ Optimization converged at **$T = 1.0367$**, yielding near-ideal expected calibra
 
 ### Python
 ```bash
-pip install von
+pip install von-sdk
 # or with uv
-uv add von
+uv add von-sdk
+
+# or directly from GitHub:
+pip install git+https://github.com/wfzyx/von.git
 ```
 
 ### TypeScript / JavaScript (Node.js & Bun)

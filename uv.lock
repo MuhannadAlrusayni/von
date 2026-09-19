@@ -1179,7 +1179,7 @@ wheels = [
 ]
 
 [[package]]
-name = "von"
+name = "von-sdk"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
