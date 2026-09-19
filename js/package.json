@@ -14,8 +14,26 @@
       "default": "./dist/index.js"
     }
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wfzyx/von.git",
+    "directory": "js"
+  },
+  "homepage": "https://github.com/wfzyx/von#readme",
+  "keywords": [
+    "decision-model",
+    "typesafe",
+    "jev",
+    "system-one",
+    "classification",
+    "routing",
+    "guardrails",
+    "agentic"
+  ],
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE.md"
   ],
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node && tsc --emitDeclarationOnly",
