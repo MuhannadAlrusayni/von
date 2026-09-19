@@ -143,7 +143,8 @@ def train(
     val_path: str = "data/val.jsonl",
     model_id: str = "tasksource/ModernBERT-large-nli",
     output_dir: str = "checkpoints/von-modernbert-rlcd",
-    epochs: int = 3,
+    s3_target: str = "s3://model-weight/von-modernbert-rlcd",
+    epochs: int = 1,
     batch_size: int = 4,
     grad_accum_steps: int = 4,
     lr: float = 2e-5,
@@ -338,6 +339,11 @@ def train(
 
         print(f"\nTraining & calibration complete! Model exported to: {output_dir}")
 
+        if s3_target:
+            print(f"Uploading artifacts immediately to S3: {s3_target} ...")
+            os.system(f"aws s3 cp --recursive {output_dir}/ {s3_target}/")
+            print("=== [VON TRAINING & S3 SYNC COMPLETE] ===")
+
     if is_ddp:
         torch.distributed.barrier()
         torch.distributed.destroy_process_group()
@@ -349,7 +355,8 @@ if __name__ == "__main__":
     parser.add_argument("--val_data", type=str, default="data/val.jsonl")
     parser.add_argument("--model_id", type=str, default="tasksource/ModernBERT-large-nli")
     parser.add_argument("--output_dir", type=str, default="checkpoints/von-modernbert-rlcd")
-    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--s3_target", type=str, default="s3://model-weight/von-modernbert-rlcd")
+    parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--grad_accum_steps", type=int, default=4)
     parser.add_argument("--lr", type=float, default=2e-5)
@@ -361,6 +368,7 @@ if __name__ == "__main__":
         val_path=args.val_data,
         model_id=args.model_id,
         output_dir=args.output_dir,
+        s3_target=args.s3_target,
         epochs=args.epochs,
         batch_size=args.batch_size,
         grad_accum_steps=args.grad_accum_steps,

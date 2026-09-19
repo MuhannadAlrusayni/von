@@ -26,13 +26,11 @@ SUBNETS = [
 ]
 AMI_ID = "ami-0e24e0019a12c5b13"  # Deep Learning Base AMI with CUDA
 CANDIDATE_TYPES = [
-    ("g5.2xlarge", "1x NVIDIA A10G 24GB, 8 vCPU (Spot ~$0.54/hr)"),
+    ("g5.12xlarge", "4x NVIDIA A10G 96GB, 48 vCPU (Spot ~$3.67/hr - Blitz Mode)"),
+    ("g4dn.12xlarge", "4x NVIDIA T4 64GB, 48 vCPU (Spot ~$1.53/hr)"),
     ("g5.4xlarge", "1x NVIDIA A10G 24GB, 16 vCPU (Spot ~$0.69/hr)"),
-    ("g6.xlarge", "1x NVIDIA L4 24GB, 4 vCPU (Spot ~$0.56/hr)"),
-    ("g6.2xlarge", "1x NVIDIA L4 24GB, 8 vCPU (Spot ~$0.65/hr)"),
+    ("g5.2xlarge", "1x NVIDIA A10G 24GB, 8 vCPU (Spot ~$0.54/hr)"),
     ("g5.xlarge", "1x NVIDIA A10G 24GB, 4 vCPU (Spot ~$0.52/hr)"),
-    ("g4dn.2xlarge", "1x NVIDIA T4 16GB, 8 vCPU (Spot ~$0.34/hr)"),
-    ("g4dn.12xlarge", "4x NVIDIA T4 64GB, 48 vCPU (Spot ~$1.52/hr)"),
 ]
 IAM_PROFILE = "AmazonSSMRoleForInstancesQuickSetup"
 S3_TARGET = "s3://model-weight/von-modernbert-rlcd"
@@ -42,8 +40,8 @@ USER_DATA_SCRIPT = """#!/bin/bash
 set -e
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-# HARD RUNAWAY WATCHDOG: Self-terminate in 150 minutes max under any circumstances
-shutdown -h +150 &
+# HARD RUNAWAY WATCHDOG: Self-terminate in 75 minutes max under any circumstances
+shutdown -h +75 &
 
 echo "=== [VON CLOUD TRAINING START] ==="
 export DEBIAN_FRONTEND=noninteractive
@@ -73,14 +71,14 @@ echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training..."
 torchrun --nproc_per_node=$NUM_GPUS training/train_rlcd.py \
     --train_data data/train.jsonl \
     --val_data data/val.jsonl \
-    --epochs 3 \
+    --epochs 1 \
     --batch_size 4 \
     --grad_accum_steps 4 \
+    --s3_target s3://model-weight/von-modernbert-rlcd \
     --output_dir checkpoints/von-modernbert-rlcd
 
-# Upload trained checkpoint to S3
-echo "Uploading checkpoint to S3: s3://model-weight/von-modernbert-rlcd/ ..."
-aws s3 cp --recursive checkpoints/von-modernbert-rlcd/ s3://model-weight/von-modernbert-rlcd/
+# Upload run logs for auditing
+aws s3 cp /var/log/user-data.log s3://model-weight/von-modernbert-rlcd/run.log || true
 
 echo "=== [VON TRAINING COMPLETE - TERMINATING INSTANCE] ==="
 shutdown -h now
