@@ -1,8 +1,11 @@
 # 🪨 Von (`von`)
 
 **The Open-Source System One Decision Model.**  
-*Sub-15ms decisions. 14MB footprint. Zero cloud latency. Zero API keys. Zero VC tax.*  
+*Sub-25ms decisions. 91.23% SOTA accuracy. Zero cloud latency. Zero API keys. Zero VC tax.*  
 *Named in homage to **John von Neumann** and **Ludwig von Mises**.*
+
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-wfzyx%2Fvon--1.0-blue)](https://huggingface.co/wfzyx/von-1.0)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ---
 
@@ -38,14 +41,19 @@ Named in homage to two giants of decision theory and computation:
 
 ---
 
----
-
 ## Installation
 
+### Python SDK & CLI
 ```bash
 pip install von
 # or with uv
 uv add von
+```
+
+### TypeScript / JavaScript SDK (Node.js & Bun)
+```bash
+bun add von-sdk
+# or npm install von-sdk
 ```
 
 ---
@@ -212,6 +220,28 @@ Response:
     "output_tokens": 8
   }
 }
+```
+
+### Call from TypeScript / JavaScript (`von-sdk`):
+
+```typescript
+import { VonClient, choice, noul, score } from "von-sdk";
+
+const client = new VonClient({ baseURL: "http://localhost:8000" });
+
+const { answers } = await client.systemOne({
+  state: { ticket: "Export button crashes settings page in Safari" },
+  questions: {
+    category: choice("What kind of issue is `ticket`?", {
+      bug: "Software bug or error",
+      billing: "Invoice or payment issue",
+    }),
+    isUrgent: noul("Does this require immediate escalation?"),
+  },
+});
+
+console.log(answers.category.choice); // "bug"
+console.log(answers.isUrgent.noul);   // 0.88
 ```
 
 ---
