@@ -12,4 +12,5 @@ checkpoints/
 data/
 .pytest_cache/
 src/von/local_backends/
+js/node_modules/
 
