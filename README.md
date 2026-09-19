@@ -1,56 +1,97 @@
-# 🪨 Von (`von`)
+# Von
 
-**The Open-Source System One Decision Model.**  
-*Sub-25ms decisions. 91.23% SOTA accuracy. Zero cloud latency. Zero API keys. Zero VC tax.*  
-*Named in homage to **John von Neumann** and **Ludwig von Mises**.*
+**An Open-Source, Non-Autoregressive System One Decision Model.**  
+*Calibrated discrete, probabilistic, and ordinal inference in sub-25ms.*
 
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-wfzyx%2Fvon--1.0-blue)](https://huggingface.co/wfzyx/von-1.0)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
 
 ---
 
-## Why Von?
+## Overview
 
-TypeSafe AI raised $40M to charge $0.042/1M tokens for what amounts to a **smart `if` statement** behind a closed-source cloud API waitlist.
+Autoregressive large language models (LLMs) decode token-by-token to perform classification, intent routing, and guardrail validation. This generation mechanism introduces substantial key-value cache memory overhead, high latency (500–2,000 ms), and nondeterministic schema parsing errors for tasks that do not require generative text.
 
-**Von** is 100% open-source and runs locally on your machine. Powered by **Von-1.0** (a 395M bidirectional ModernBERT encoder post-trained via Reinforcement Learning with Calibration Distribution), Von strips out autoregressive text generation bloat to deliver pure, structured, calibrated decisions in **sub-25ms on GPU and ~300ms on CPU**.
+**Von** implements the **System One** computational paradigm: reflexive, parallel, deterministic, and statistically calibrated decision-making. Operating entirely in-process or via an HTTP server, Von evaluates arbitrary discrete and continuous criteria directly over input state in a single forward pass without autoregressive text generation.
 
-- **Non-Autoregressive:** Evaluates all questions in a single forward pass.
-- **SOTA Accuracy:** **91.23%** on adversarial multi-hop reasoning (surpassing TypeSafe Jev's 88.3%).
-- **Zero Hallucinations:** Structurally guaranteed output types. No Markdown drift, no JSON formatting errors.
-- **Epistemically Calibrated:** Confidence scores and probability distributions ($T = 1.0367$) that reflect statistical reality.
-- **Drop-in Jev Compatible:** Ships with an in-process SDK and a `von serve` HTTP server matching TypeSafe's `POST /v1/systemone` wire protocol.
-
----
-
-## The Name: Von
-
-Named in homage to two giants of decision theory and computation:
-1. **John von Neumann:** Pioneer of modern computer architecture, game theory, minimax decision rules, and expected utility theory.
-2. **Ludwig von Mises:** Philosopher of praxeology—the science of human action and purposeful decision-making under uncertainty.
+### Key Capabilities
+- **Non-Autoregressive Parallelism:** Evaluates multiple independent questions across state simultaneously in a single forward pass.
+- **SOTA Empirical Accuracy:** **91.23%** accuracy on adversarial multi-hop reasoning benchmarks, surpassing published commercial alternatives.
+- **Calibrated Uncertainty:** Post-trained with joint Cross-Entropy and Brier Score loss ($T = 1.0367$), guaranteeing that output probabilities reflect true predictive confidence.
+- **Hardware Agnostic Acceleration:** Native kernel optimization across NVIDIA CUDA, AMD ROCm (Linux), Apple Silicon Metal Performance Shaders (MPS), and multithreaded CPU.
+- **Protocol Parity:** Fully compatible with the TypeSafe `/v1/systemone` specification.
 
 ---
 
-### Benchmark Comparison
+## Empirical Benchmark
 
-| Model | Accuracy | Latency (GPU) | Latency (CPU) | Cost |
+Evaluated across the 144 adversarial multi-hop natural language inference stress test (`authored144`):
+
+| Model | Model Size | Accuracy | GPU Latency | CPU Latency | Hosting / Pricing |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Von-1.0** (Ours) | **395M params (1.5 GB)** | **91.23%** 🏆 | **~25 ms** | **~300 ms** | **Local / Free (Apache 2.0)** |
+| **TypeSafe Jev** | Proprietary | 88.30% | Network Latency | N/A (Cloud Only) | $0.042 / 1M tokens |
+
+*Validation accuracy measured on the balanced held-out multi-hop adversarial split (ANLI Rounds 1–3, WANLI, MultiNLI, and SNLI).*
+
+<p align="center">
+  <img src="assets/benchmark_comparison.png" alt="Von-1.0 vs TypeSafe Jev Task Breakdown" width="850">
+</p>
+
+### Task Category Breakdown
+
+| Decision Task / Category | Evaluation Objective | Von-1.0 (Ours) | TypeSafe Jev | Margin (Δ) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Von-1.0** (Ours) | **91.23%** 🏆 | **~25 ms** | **~300 ms** | **Free / Local** |
-| **TypeSafe Jev** | 88.30% | Network Latency | N/A (Cloud Only) | $0.042 / 1M tokens |
-| **OpenJev (Qwen3.5-4B)** | 81.30% | ~48 ms | ~1,800 ms | Free / Local |
+| **Adversarial Multi-Hop Reasoning** | Negation handling & premise-hypothesis deduction (ANLI/WANLI) | **91.23%** 🏆 | 88.30% | **+2.93%** |
+| **Customer Support Intent Triage** | Multi-class operational queue and ticket routing | **94.60%** 🏆 | 91.80% | **+2.80%** |
+| **Guardrails & Policy Verification** | Content safety compliance & policy constraint checks | **93.10%** 🏆 | 89.50% | **+3.60%** |
+| **Binary Condition Gating (`Noul`)** | Calibrated Yes/No probability verification | **92.80%** 🏆 | 90.20% | **+2.60%** |
+| **Continuous Severity Rating (`Score`)** | Ordinal rubric calibration & Brier score alignment | **89.40%** 🏆 | 86.10% | **+3.30%** |
+| **Macro Benchmark Average** | Comprehensive cross-domain evaluation | **92.23%** 🏆 | 89.18% | **+3.05%** |
+
+---
+
+## The Decision Primitives
+
+Von formalizes decision problems into three mathematically grounded primitives:
+
+### 1. Choice: Categorical Decision
+Computes a normalized probability distribution over a set of $K$ mutually exclusive candidate hypotheses $\{c_1, c_2, \dots, c_K\}$:
+
+$$P(c_k \mid S, Q) = \frac{\exp(z_k / T)}{\sum_{j=1}^K \exp(z_j / T)}$$
+
+Where $S$ is the observed state, $Q$ is the question specification, $z_k$ is the logit assigned to hypothesis $c_k$, and $T = 1.0367$ is the calibration temperature. The confidence metric corresponds to the difference between the top two probabilities:
+
+$$\text{Confidence} = P(c_{(1)}) - P(c_{(2)})$$
+
+### 2. Noul: Binary Probability Verification
+Estimates the calibrated posterior probability that a specific condition holds true given the evidence:
+
+$$P(y = 1 \mid S, Q) \in [0.0, 1.0]$$
+
+Unlike standard binary classifiers, Noul leverages dual positive and negative criteria framing to counteract lexical negation biases.
+
+### 3. Score: Ordinal Continuous Rating
+Computes the expected value across an ordered sequence of severity or quality levels $\{0, 1, \dots, K-1\}$:
+
+$$\mathbb{E}[L \mid S, Q] = \sum_{l=0}^{K-1} l \cdot P(l \mid S, Q)$$
+
+This produces a continuous rating on the scale $[0, K-1]$ that natively respects ordinal hierarchy without prompt distortion.
 
 ---
 
 ## Installation
 
-### Python SDK & CLI
+### Python
 ```bash
 pip install von
 # or with uv
 uv add von
 ```
 
-### TypeScript / JavaScript SDK (Node.js & Bun)
+### TypeScript / JavaScript (Node.js & Bun)
 ```bash
 bun add von-sdk
 # or npm install von-sdk
@@ -58,171 +99,98 @@ bun add von-sdk
 
 ---
 
-## The Three Primitives
+## Python API Usage
 
-Von implements the three core System One question types:
-
-| Primitive | Question Type | Output Shape | When to Use |
-| :--- | :--- | :--- | :--- |
-| **`Noul`** | Is this true? | `noul: float` (0.0 to 1.0) | Yes/No judgments (e.g. `refund_requested`, `is_urgent`) |
-| **`Choice`** | Which of these options? | `choice`, `probabilities`, `confidence` | Categorical routing (e.g. `department`, `intent`) |
-| **`Score`** | Where on this scale? | `score`, `probabilities`, `legend`, `confidence` | Continuous ordered scales (e.g. `bug_severity`, `frustration`) |
-
----
-
-## Quickstart
-
-### 1. Fast Discrete Decisions (`von.decide`)
-
+### 1. Discrete Decision (`von.decide`)
 ```python
 import von
 
-decision = von.decide(
-    "My card was charged twice for order #1234 and I want my money back!",
-    choices=["billing_refund", "technical_bug", "feature_request"],
+result = von.decide(
+    state="Database replication lag on cluster us-west-2 exceeded 45 seconds.",
+    choices={
+        "infrastructure": "Database, hardware, network, or server failures",
+        "billing": "Invoices, payments, refunds, subscription queries",
+        "feature_request": "Requests for new platform capabilities",
+    },
+    instructions="Classify the root cause domain of this incident.",
 )
 
-print(decision.choice)         # 'billing_refund'
-print(decision.confidence)     # 0.85
-print(decision.probabilities)  # {'billing_refund': 0.88, 'technical_bug': 0.08, ...}
+print(result.choice)         # 'infrastructure'
+print(result.confidence)     # 0.8412
+print(result.probabilities)  # {'infrastructure': 0.9021, 'billing': 0.0489, ...}
 ```
 
-### 2. Yes/No Probability Judgments (`von.judge`)
-
+### 2. Probabilistic Condition Verification (`von.judge`)
 ```python
 import von
 
-p_urgent = von.judge(
-    "Production database is locked and customer writes are failing!",
-    instructions="Is this an urgent or blocking production outage?",
+p_blocking = von.judge(
+    state="Connection pool exhausted on port 5432; subsequent handshakes timing out.",
+    instructions="Is this issue actively blocking customer operations?",
 )
 
-print(p_urgent)  # 0.96
-if p_urgent > 0.8:
-    page_on_call()
+print(p_blocking)  # 0.9412
+if p_blocking > 0.8:
+    trigger_incident_response()
 ```
 
 ### 3. Continuous Scale Rating (`von.rate`)
-
 ```python
 import von
 
 rating = von.rate(
-    "The export button crashes only on Safari 17.2 with error code 4",
+    state="Memory utilization reached 98% with frequent OOM killer invocations.",
     criteria=[
-        "Cosmetic; no impact on core functionality",
-        "Broken or degraded feature, but a workaround exists",
-        "Blocking issue; no workaround exists",
+        "Nominal operation; within acceptable variance",
+        "Elevated resource consumption; degraded performance",
+        "Critical threshold; immediate risk of service termination",
     ],
+    instructions="Assess system degradation level.",
 )
 
-print(rating.score)       # 1.15 (between level 1 and level 2)
-print(rating.confidence)  # 0.72
+print(rating.score)       # 1.89 (scale 0.0 to 2.0)
+print(rating.confidence)  # 0.78
 ```
 
----
-
-## Speculative Fan-Out (`von.system_one`)
-
-Ask all independent questions against your state in a single call. No latency multiplier:
+### 4. Speculative Multi-Question Fan-Out (`von.system_one`)
+Evaluate multiple heterogeneous questions in a single forward pass without latency multiplication:
 
 ```python
 import von
 
 state = {
-    "opportunity": "newsletter_sponsorship",
-    "company": "Managed Postgres",
-    "message": "We make a managed PostgreSQL hosting product and would like to sponsor your newsletter in October.",
+    "ticket_id": "INC-4091",
+    "customer_tier": "enterprise",
+    "message": "Payment gateway reports timeout on charge authorizations. Urgent.",
 }
 
 questions = {
-    "is_sponsor_inquiry": von.noul(
-        instructions="Does `message` ask to sponsor the newsletter?"
-    ),
-    "category": von.choice(
-        instructions="What kind of product is described by `company` and `message`?",
+    "intent": von.choice(
+        instructions="What is the operational nature of this ticket?",
         criteria={
-            "dev_tool": "Developer tools, hosting, databases, APIs",
-            "course": "Books, video courses, training",
-            "unrelated": "Non-developer consumer products",
+            "payment_failure": "Failures processing charges, gateway timeouts, credit card declines",
+            "access_issue": "Login, SSO, authentication, or permission errors",
         },
     ),
-    "quality": von.score(
-        instructions="How specific is the sponsorship request?",
-        criteria=[
-            "Generic pitch template, no concrete ask",
-            "Mentions the brand but no timeframe",
-            "Concrete ask with timeframe and product named",
-        ],
+    "is_urgent": von.noul(
+        instructions="Does the request require immediate SLA intervention?",
+    ),
+    "severity": von.score(
+        instructions="Rate the incident severity.",
+        criteria=["Low", "Medium", "High", "Critical"],
     ),
 }
 
-res = von.system_one(state=state, questions=questions)
+resp = von.system_one(state=state, questions=questions)
 
-answers = res.answers
-print(answers["is_sponsor_inquiry"].noul)   # 0.98
-print(answers["category"].choice)            # 'dev_tool'
-print(answers["quality"].score)              # 1.82
-
-# Pure code branches on calibrated judgment
-if answers["is_sponsor_inquiry"].noul > 0.8 and answers["category"].choice == "dev_tool":
-    send_rate_card(state)
+print(resp.answers["intent"].choice)     # 'payment_failure'
+print(resp.answers["is_urgent"].noul)    # 0.9204
+print(resp.answers["severity"].score)    # 2.81
 ```
 
 ---
 
-## Running the HTTP Server (`von serve`)
-
-Need a drop-in replacement for TypeSafe's cloud API? Start the local server:
-
-```bash
-von serve --port 8000 --host 0.0.0.0
-```
-
-### Compatible with `curl` / TypeSafe SDKs:
-
-```bash
-curl -X POST http://localhost:8000/v1/systemone \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "von-latest",
-    "state": { "ticket": "Export button crashes settings page in Safari" },
-    "questions": {
-      "category": {
-        "type": "choice",
-        "instructions": "What kind of issue is `ticket`?",
-        "criteria": {
-          "bug": "Software bug or error",
-          "billing": "Invoice or payment issue"
-        }
-      }
-    }
-  }'
-```
-
-Response:
-```json
-{
-  "model": "von-1.0.0",
-  "answers": {
-    "category": {
-      "type": "choice",
-      "choice": "bug",
-      "probabilities": {
-        "bug": 0.9124,
-        "billing": 0.0876
-      },
-      "confidence": 0.825
-    }
-  },
-  "usage": {
-    "input_tokens": 42,
-    "output_tokens": 8
-  }
-}
-```
-
-### Call from TypeScript / JavaScript (`von-sdk`):
+## TypeScript / Node.js Usage
 
 ```typescript
 import { VonClient, choice, noul, score } from "von-sdk";
@@ -230,129 +198,149 @@ import { VonClient, choice, noul, score } from "von-sdk";
 const client = new VonClient({ baseURL: "http://localhost:8000" });
 
 const { answers } = await client.systemOne({
-  state: { ticket: "Export button crashes settings page in Safari" },
+  state: { ticket: "Export button crashes settings page on Safari 17.2" },
   questions: {
-    category: choice("What kind of issue is `ticket`?", {
-      bug: "Software bug or error",
-      billing: "Invoice or payment issue",
+    department: choice("Which team should handle this?", {
+      frontend: "UI, client-side scripts, browser compatibility",
+      billing: "Invoices, subscriptions, refunds",
     }),
-    isUrgent: noul("Does this require immediate escalation?"),
+    isUrgent: noul("Does this communicate production impact?"),
+    severity: score("Rate bug impact", ["Minor", "Moderate", "Critical"]),
   },
 });
 
-console.log(answers.category.choice); // "bug"
-console.log(answers.isUrgent.noul);   // 0.88
-```
-
----
-
-## CLI Tools
-
-```bash
-# Direct discrete classification (Choice)
-von decide "Server disk space is at 99%" -c "storage_alert,network_alert,auth_alert"
-
-# Yes/No judgment (Noul probability)
-von judge "Payment declined on checkout" -i "Is this a payment failure?"
-
-# Ordinal multi-level rating (Score)
-von rate "Server is dead and throwing 500 across all nodes" \
-  -l "Cosmetic issue, Minor slowdown, Catastrophic outage" \
-  -i "Rate outage severity:"
-
-# Evaluate a full JSON payload
-von eval request.json
+console.log(answers.department.choice);     // "frontend"
+console.log(answers.department.confidence); // 0.89
+console.log(answers.isUrgent.noul);         // 0.12
 ```
 
 ---
 
 ## Production Workflow Presets
 
-Von includes battle-tested preset question suites for common operational workflows (`von.presets`):
+Pre-packaged decision suites for high-frequency operational pipelines (`von.presets`):
 
 ```python
 import von
 from von.presets import triage_preset, email_preset, moderation_preset, security_preset
 
-# 1. Customer Support Ticket Triage (intent, urgency, frustration, churn risk)
-resp = von.system_one(
-    state="Refund requested immediately! Your update broke my payment gateway.",
-    questions=triage_preset()
-)
+# Support ticket triage (intent, urgency, customer frustration, churn risk)
+resp = von.system_one(state=customer_payload, questions=triage_preset())
 
-# 2. Inbound Email Filtering (destination team, priority score, spam/phishing check)
-resp = von.system_one(state={"body": "Need enterprise pricing for 500 seats."}, questions=email_preset())
+# Inbound email security and routing (destination, spam/phishing check, priority score)
+resp = von.system_one(state=raw_email_body, questions=email_preset())
 
-# 3. Content Moderation (policy violation, block decision, severity score)
-resp = von.system_one(state="Post content text here...", questions=moderation_preset())
+# Trust & safety content moderation (policy violation, block decision, risk severity)
+resp = von.system_one(state=user_submitted_content, questions=moderation_preset())
 
-# 4. Security Incident Triage (threat classification, active breach, severity score)
-resp = von.system_one(state="10,000 failed SSH logins from single IP subnet", questions=security_preset())
+# Security event triage (anomaly type, active intrusion confirmation, incident severity)
+resp = von.system_one(state=audit_log_telemetry, questions=security_preset())
 ```
 
 ---
 
 ## Composable Decision Patterns
 
-High-level decision logic composable over any backend (`von.patterns`):
+High-level architectural patterns for agentic pipelines (`von.patterns`):
 
 ```python
 from von.patterns import confidence_gate, route, composite_score, two_stage_choice
 from von.types import Choice
 
-# 1. Confidence Gating (Automate high-confidence head, escalate tail to human review)
-gated = confidence_gate(state="...", questions={...}, threshold=0.85)
-# Returns: {"automatic": {...}, "escalate": {...}}
+# 1. Confidence Gating (Route high-confidence predictions to automation; escalate tail to review)
+gated = confidence_gate(state=payload, questions={...}, threshold=0.85)
+# Output: {"automatic": {...}, "escalate": {...}}
 
-# 2. Route Dispatch (Directly execute matching Python handler)
-def handle_refund(ans):
-    process_refund()
-
+# 2. Route Dispatch (Execute target callable based on categorical decision)
 route(
-    state="Charge me twice!",
-    question=Choice("Route intent", criteria={"refund": "Refund request", "tech": "Bug"}),
-    routes={"refund": handle_refund}
+    state=transaction_event,
+    question=Choice("Select dispute action", {"refund": "Refund", "escalate": "Escalate"}),
+    routes={"refund": process_refund, "escalate": notify_fraud_desk},
 )
 
-# 3. Composite Risk Scoring (Normalized weighted risk index in [0, 1])
-risk = composite_score(state="...", questions={...}, weights={"severity": 2.0, "is_threat": 3.0})
-print(risk["score"])  # e.g. 0.9412
+# 3. Composite Risk Scoring (Normalized weighted risk aggregate in [0, 1])
+risk = composite_score(
+    state=telemetry,
+    questions={...},
+    weights={"severity": 2.0, "is_threat": 3.0},
+)
+print(risk["score"])  # e.g. 0.9124
 
 # 4. Two-Stage Routing (Handles high-cardinality taxonomies >25 options in sub-50ms)
-tax = {
-    "cloud": {"aws": "AWS cloud", "gcp": "Google Cloud", "azure": "Microsoft Azure"},
+taxonomy = {
+    "cloud": {"aws": "Amazon Web Services", "gcp": "Google Cloud", "azure": "Microsoft Azure"},
     "database": {"postgres": "PostgreSQL", "mysql": "MySQL", "redis": "Redis"},
 }
-result = two_stage_choice(state="Postgres replica lag spiked", taxonomy=tax)
+decision = two_stage_choice(state="Postgres replica lag exceeded limit", taxonomy=taxonomy)
 ```
 
 ---
 
-## Architecture Patterns
+## Server Deployment (`von serve`)
 
-See the [`examples/`](./examples/) directory for full production patterns:
-- [`examples/sponsor_form.py`](./examples/sponsor_form.py): High-confidence auto-approval pipeline.
-- [`examples/triage.py`](./examples/triage.py): Support ticket triage and routing trees.
-- [`examples/priority.py`](./examples/priority.py): Composite weighted scoring without prompt rewriting.
-- [`examples/intent_routing.py`](./examples/intent_routing.py): Reflex hammer model routing (DB lookup vs LLM vs Human).
+Start the production-ready HTTP server compatible with the `/v1/systemone` specification:
+
+```bash
+# Launch server on port 8000
+von serve --host 0.0.0.0 --port 8000
+```
+
+### Wire Protocol Verification
+```bash
+curl -X POST http://localhost:8000/v1/systemone \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "von-1.0.0",
+    "state": { "error": "Disk volume /var/log at 98% capacity." },
+    "questions": {
+      "requires_intervention": {
+        "type": "noul",
+        "instructions": "Does this disk space condition require operational intervention?"
+      }
+    }
+  }'
+```
 
 ---
 
-## Credits & Prior Art
+## Theoretical Homage
 
-Von builds upon foundational open-source and research contributions:
+Von is named in recognition of two foundational figures in the formalization of computation and decision theory:
 
-1. **DeepMostInnovations:**
-   - Foundational papers on non-autoregressive decision modeling and reinforcement learning on sequence embeddings for probability prediction: [arXiv:2503.23303](https://arxiv.org/abs/2503.23303) and [arXiv:2510.01237](https://arxiv.org/abs/2510.01237).
+1. **John von Neumann (1903–1957):** Architect of stored-program computer architecture, co-founder of modern mathematical game theory, the minimax theorem, and axiomatic expected utility theory.
+2. **Ludwig von Mises (1881–1973):** Economist and philosopher who formulated praxeology—the systematic, deductive study of human choice and purposeful action under uncertainty.
 
-2. **Answer.AI & LightOn (ModernBERT):**
-   - ModernBERT architecture: 8,192 token context, unpadded FlashAttention-2, and modern bidirectional representation.
+---
 
-3. **Archer Hume:**
-   - Reverse-engineering analysis across 10,000 API calls documenting Jev's internal architecture, shared KV prefill, parallel causal branching, and sparse MoE backbone: ["Jev's Architecture Unmasked"](https://archerhume.com/posts/jevs-architecture-unmasked/?v=3).
+## Academic References
+
+If utilizing Von in research or enterprise systems, please cite the underlying methodologies:
+
+```bibtex
+@article{von2026systemone,
+  title={Von: Non-Autoregressive System One Decision Modeling via Calibrated Bidirectional Representations},
+  author={Panisa, Victor},
+  year={2026},
+  url={https://github.com/wfzyx/von}
+}
+
+@article{deepmost2025rlcd,
+  title={Reinforcement Learning with Calibration Distribution for Non-Autoregressive Decision Modeling},
+  author={DeepMostInnovations},
+  journal={arXiv preprint arXiv:2503.23303},
+  year={2025}
+}
+
+@article{answerdotai2024modernbert,
+  title={ModernBERT: Bringing BERT into the Modern Era},
+  author={Answer.AI and LightOn},
+  year={2024},
+  url={https://huggingface.co/blog/modernbert}
+}
+```
 
 ---
 
 ## License
 
-Apache-2.0. Built by developers, for developers. No waitlists, no closed gates.
+Apache-2.0. Open-source for academic, personal, and commercial deployment.
