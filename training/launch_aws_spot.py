@@ -61,16 +61,17 @@ uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu
 uv pip install transformers datasets scipy sentencepiece tiktoken accelerate awscli
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-# Build 250k training corpus
-python training/prepare_dataset.py --max_train 250000 --val_samples 3000 --output_dir data
+# Build operational decision training corpus (Phase 2)
+python training/prepare_decision_dataset.py --max_train 65000 --val_samples 3000 --output_dir data_decision
 
 # Detect GPUs and train with DDP
 NUM_GPUS=$(nvidia-smi -L | wc -l)
 echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training..."
 
 torchrun --nproc_per_node=$NUM_GPUS training/train_rlcd.py \
-    --train_data data/train.jsonl \
-    --val_data data/val.jsonl \
+    --train_data data_decision/train.jsonl \
+    --val_data data_decision/val.jsonl \
+    --model_id wfzyx/von-1.0 \
     --epochs 1 \
     --batch_size 4 \
     --grad_accum_steps 4 \
