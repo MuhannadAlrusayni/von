@@ -97,6 +97,8 @@ class BertaBackend(BaseBackend):
         self._model = None
         self._tokenizer = None
         self._entail_idx = 0
+        self._contra_idx = 2
+        self._neutral_idx = 1
         self._lock = threading.Lock()
 
     def _get_model_and_tok(self):
@@ -113,7 +115,7 @@ class BertaBackend(BaseBackend):
                 self._tokenizer = AutoTokenizer.from_pretrained(self.model_id)
                 self._model = AutoModelForSequenceClassification.from_pretrained(
                     self.model_id,
-                    torch_dtype=dtype,
+                    dtype=dtype,
                 ).to(self.device).eval()
 
                 # Check for calibration.json if using local checkpoint
@@ -128,12 +130,19 @@ class BertaBackend(BaseBackend):
                 else:
                     self._default_temp = 1.0
 
-                # Detect entailment class index in id2label
+                # Detect entailment, contradiction, and neutral class indices in id2label
+                self._entail_idx = 0
+                self._contra_idx = 2
+                self._neutral_idx = 1
                 id2label = getattr(self._model.config, "id2label", {})
                 for idx, lbl in id2label.items():
-                    if "entail" in lbl.lower():
+                    lbl_lower = str(lbl).lower()
+                    if "entail" in lbl_lower:
                         self._entail_idx = int(idx)
-                        break
+                    elif "contra" in lbl_lower:
+                        self._contra_idx = int(idx)
+                    elif "neutral" in lbl_lower:
+                        self._neutral_idx = int(idx)
             return self._model, self._tokenizer
 
     def evaluate_choice(
@@ -202,6 +211,9 @@ class BertaBackend(BaseBackend):
 
         legend: Dict[str, str] = {}
         hypotheses = []
+        inst_clean = q.instructions.strip() if q.instructions else ""
+        is_how_question = inst_clean.lower().startswith("how ")
+
         for i, item in enumerate(levels):
             idx_str = str(i)
             if isinstance(item, dict):
@@ -210,9 +222,16 @@ class BertaBackend(BaseBackend):
                 ex_str = f" Examples: {', '.join(examples)}" if examples else ""
                 desc = f"{what}{ex_str}".strip()
             else:
-                desc = str(item)
+                desc = str(item).strip()
             legend[idx_str] = desc
-            hypotheses.append(f"{q.instructions} Level {i}: {desc}")
+
+            # Avoid lexical query-level bias when question asks "How <adjective>..."
+            if is_how_question:
+                hypotheses.append(f"The condition is {desc}")
+            elif inst_clean:
+                hypotheses.append(f"{inst_clean} {desc}")
+            else:
+                hypotheses.append(desc)
 
         premises = [state_text] * len(levels)
         inputs = tok(
@@ -257,15 +276,59 @@ class BertaBackend(BaseBackend):
         pos_crit = crit.get("true", "")
         neg_crit = crit.get("false", "")
 
-        pos_hyp = f"{q.instructions} {pos_crit or 'Condition holds true.'}".strip()
-        neg_hyp = f"{q.instructions} {neg_crit or 'Condition is false or not satisfied.'}".strip()
+        if pos_crit and neg_crit:
+            pos_hyp = f"{q.instructions} {pos_crit}".strip()
+            neg_hyp = f"{q.instructions} {neg_crit}".strip()
+            premises = [state_text, state_text]
+            hypotheses = [pos_hyp, neg_hyp]
+            inputs = tok(
+                premises,
+                hypotheses,
+                padding=True,
+                truncation=True,
+                max_length=512,
+                return_tensors="pt",
+            ).to(self.device)
+            with torch.no_grad():
+                logits = model(**inputs).logits
+                entail_scores = logits[:, self._entail_idx]
+                scaled = entail_scores / max(temperature, 1e-4)
+                probs = torch.softmax(scaled, dim=-1).cpu().tolist()
+            prob_true = round(max(0.0, min(1.0, probs[0])), 4)
+            return NoulAnswer(noul=prob_true)
 
-        premises = [state_text, state_text]
-        hypotheses = [pos_hyp, neg_hyp]
+        # Handle interrogative questions vs declarative conditions
+        s = q.instructions.strip() if q.instructions else ""
+        is_question = s.endswith("?") or s.lower().startswith(
+            ("is ", "are ", "does ", "do ", "can ", "could ", "should ")
+        )
+        if is_question:
+            q_clean = s.rstrip("?")
+            pos_hyp = f"{q_clean}? Yes."
+            neg_hyp = f"{q_clean}? No."
+            premises = [state_text, state_text]
+            hypotheses = [pos_hyp, neg_hyp]
+            inputs = tok(
+                premises,
+                hypotheses,
+                padding=True,
+                truncation=True,
+                max_length=512,
+                return_tensors="pt",
+            ).to(self.device)
+            with torch.no_grad():
+                logits = model(**inputs).logits
+                entail_scores = logits[:, self._entail_idx]
+                scaled = entail_scores / max(temperature, 1e-4)
+                probs = torch.softmax(scaled, dim=-1).cpu().tolist()
+            prob_true = round(max(0.0, min(1.0, probs[0])), 4)
+            return NoulAnswer(noul=prob_true)
 
+        # Declarative condition: evaluate condition directly via calibrated NLI entailment-vs-contradiction
+        hyp = f"{s} {pos_crit}".strip() if pos_crit else s
         inputs = tok(
-            premises,
-            hypotheses,
+            [state_text],
+            [hyp],
             padding=True,
             truncation=True,
             max_length=512,
@@ -273,12 +336,16 @@ class BertaBackend(BaseBackend):
         ).to(self.device)
 
         with torch.no_grad():
-            logits = model(**inputs).logits
-            entail_scores = logits[:, self._entail_idx]
-            scaled = entail_scores / max(temperature, 1e-4)
-            probs = torch.softmax(scaled, dim=-1).cpu().tolist()
+            logits = model(**inputs).logits[0]
+            ent_score = logits[self._entail_idx].item()
+            con_score = logits[self._contra_idx].item()
+            diff = (ent_score - con_score) / max(temperature, 1e-4)
+            prob_true = torch.sigmoid(torch.tensor(diff)).item()
 
-        prob_true = round(max(0.0, min(1.0, probs[0])), 4)
+        if neg_crit and not pos_crit:
+            prob_true = 1.0 - prob_true
+
+        prob_true = round(max(0.0, min(1.0, prob_true)), 4)
         return NoulAnswer(noul=prob_true)
 
     def evaluate(
