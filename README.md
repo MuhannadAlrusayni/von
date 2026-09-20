@@ -27,7 +27,8 @@ Autoregressive large language models (LLMs) decode token-by-token to perform cla
 
 ## Empirical Benchmark
 
-Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmark](https://github.com/jabr/classifier-benchmark)) comprising 8 tasks and 78 cases across all three System One decision primitives:
+### 1. Peer Classifier Benchmark (v1 Suite · 8 Tasks, 78 Cases)
+Evaluated across the original independent peer benchmark suite ([jabr/classifier-benchmark](https://github.com/jabr/classifier-benchmark)) comprising 8 core operational tasks across all three System One decision primitives:
 
 | Model | Model Size | Macro Acc | Micro Acc | MPS / GPU Latency | CPU Latency | Hosting / Pricing |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -41,7 +42,7 @@ Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmar
   <img src="assets/benchmark_comparison.png" alt="Von-1.0 vs GLiNER2 vs TypeSafe Jev Task Breakdown" width="850">
 </p>
 
-### Task Breakdown
+#### Task Breakdown (v1 Suite)
 
 | Decision Task | Primitive Type | Von-1.0 | GLiNER2 | TypeSafe Jev | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -58,6 +59,21 @@ Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmar
 
 ---
 
+### 2. Multi-Domain Generalization Benchmark (v2 Suite · 49 Tasks, 869 Cases)
+Evaluated across jabr's expanded [v2 benchmark suite](https://github.com/jabr/classifier-benchmark/blob/main/results/v1v2-summary.md) testing out-of-domain generalization across 49 novel tasks (compliance, medical triage, legal, DevOps, linguistics, safety):
+
+| Model / Architecture | Model Size | v2 Macro Acc | v2 Micro Acc | Choice Macro (20 tasks) | Noul Macro (18 tasks) | Score Macro (11 tasks) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary | **96.6%** | **96.4%** | **96.8%** | **96.2%** | **96.4%** |
+| **Von OptionMarker (Calibrated)** | **395M params** | **71.5%** | **71.8%** | **83.4%** | **62.5%** | **64.8%** |
+| **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 68.4% | 68.8% | 76.2% | 61.3% | 60.1% |
+| **Von-1.0.1** (Cross-Encoder baseline) | 395M params | 66.7% | 66.6% | 74.5% | 58.1% | 57.4% |
+| **Laya** (`convaiinnovations/laya`) | 421M params | 58.3% | 58.5% | 66.8% | 52.4% | 49.2% |
+
+*Von leads all open local System One models on the 49-task v2 suite at 71.5% macro (Choice routing at 83.4%, with symptom triage at 100.0%, home services at 95.7%, and city routing at 94.7%).*
+
+---
+
 ## Zero-Shot ViZDoom Real-Time Decision Benchmark
 
 Following the empirical methodology published in [*Jev-style models on DGX Spark*](https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/) and TypeSafe's Doom demonstrations, models are evaluated controlling real-time gameplay in [ViZDoom](https://vizdoom.farama.org/) purely zero-shot from structured semantic scene observations.
@@ -68,7 +84,7 @@ The evaluation benchmarks the model across two standard tasks across eight share
 
 | Model / Controller | Model Architecture | Defend Kills (Mean across 8 seeds) | Health Survival (Mean across 8 seeds) | Execution |
 | :--- | :--- | :--- | :--- | :--- |
-| **Von OptionMarker (Zero-Shot)** | **395M Bidirectional ModernBERT** | **9.38 kills (NEW SOTA)** | **12.11 s** | **Local In-Process (Sub-18ms)** |
+| **Von OptionMarker (Zero-Shot)** | **395M Bidirectional ModernBERT** | **9.38 kills** | **12.11 s** | **Local In-Process (Sub-18ms)** |
 | **TypeSafe Jev 1.13 API** | Proprietary Hosted Decision Model | 5.62 kills | **13.03 s** | Cloud Hosted (~115ms) |
 | **Finetuned Qwen3.5 4B** | 4B Causal Decoder | 3.62 kills | 11.31 s | Local (One DGX Spark) |
 | **Random Action Baseline** | Unconditional Uniform Sampling | 1.88 kills | 15.77 s | Scripted |
