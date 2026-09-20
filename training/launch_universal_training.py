@@ -57,13 +57,13 @@ cd /opt/von
 /root/.local/bin/uv pip install --python /opt/von/.venv transformers datasets scipy sentencepiece tiktoken accelerate pydantic
 export PYTHONPATH="/opt/von/src:$PYTHONPATH"
 
-# Build Phase 4 Universal Decision Corpus (200k samples)
-echo "=== Building 200,000-sample Universal Decision Corpus ==="
-/opt/von/.venv/bin/python -m training.prepare_universal_dataset --max_train 200000 --val_samples 5000 --output_dir data_universal
+# Build Phase 4 Universal Decision Corpus (290k samples)
+echo "=== Building 290,000-sample Universal Decision Corpus ==="
+/opt/von/.venv/bin/python -m training.prepare_universal_dataset --max_train 290000 --val_samples 5000 --output_dir data_universal
 
 # Detect GPUs and train with DDP
 NUM_GPUS=$(nvidia-smi -L | wc -l)
-echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training for 3 Epochs..."
+echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training with 8,192 Context Window..."
 
 /opt/von/.venv/bin/torchrun --nproc_per_node=$NUM_GPUS training/train_option_marker.py \\
     --train_data data_universal/train.jsonl \\
@@ -72,6 +72,7 @@ echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training for 3 Epochs..."
     --epochs 3 \\
     --batch_size 8 \\
     --grad_accum_steps 2 \\
+    --max_position_embeddings 8192 \\
     --s3_target s3://model-weight/von-option-marker-universal \\
     --output_dir checkpoints/von-option-marker-universal
 

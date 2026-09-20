@@ -17,6 +17,7 @@ class OptionMarkerScorer(nn.Module):
 
     def __init__(self, hidden_size: int = 1024, dropout: float = 0.1):
         super().__init__()
+        self.input_norm = nn.LayerNorm(hidden_size)
         self.dense = nn.Linear(hidden_size, hidden_size // 2)
         self.act = nn.GELU()
         self.norm = nn.LayerNorm(hidden_size // 2)
@@ -25,6 +26,7 @@ class OptionMarkerScorer(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Projects (N_options, hidden_size) representations to scalar logits."""
+        x = self.input_norm(x)
         h = self.dense(x)
         h = self.act(h)
         h = self.norm(h)
@@ -38,13 +40,17 @@ class OptionMarkerModel(nn.Module):
     def __init__(
         self,
         base_model_id: str = "checkpoints/von-modernbert-rlcd",
+        max_position_embeddings: int = 8192,
         dropout: float = 0.1,
     ):
         super().__init__()
-        self.encoder = AutoModel.from_pretrained(base_model_id)
+        from transformers import AutoConfig
+        config = AutoConfig.from_pretrained(base_model_id)
+        config.max_position_embeddings = max_position_embeddings
+        self.encoder = AutoModel.from_pretrained(base_model_id, config=config)
         self.hidden_size = self.encoder.config.hidden_size
         self.scorer = OptionMarkerScorer(hidden_size=self.hidden_size, dropout=dropout)
-        self.tokenizer = AutoTokenizer.from_pretrained(base_model_id)
+        self.tokenizer = AutoTokenizer.from_pretrained(base_model_id, model_max_length=max_position_embeddings)
         self.mask_token_id = self.tokenizer.mask_token_id
 
     def forward(

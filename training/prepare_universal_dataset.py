@@ -91,6 +91,10 @@ def generate_dietary_vegan_cases(n: int = 4000) -> List[dict]:
         "Roasted cauliflower tacos on corn tortillas with black beans, pickled red onions, and cashew crema.",
         "Smoothie made with frozen bananas, spinach, peanut butter, oat milk, and spirulina powder.",
         "Whole wheat sourdough toast topped with smashed avocado, hemp seeds, nutritional yeast, and chili flakes.",
+        "Chickpea and vegetable curry with coconut milk, turmeric, ginger, and basmati rice.",
+        "Organic corn tortilla chips with fresh guacamole, salsa verde, and black bean dip.",
+        "Cold brew coffee with oat milk and vanilla bean extract.",
+        "Quinoa salad with cucumbers, kalamata olives, cherry tomatoes, parsley, and lemon-tahini dressing.",
     ]
     non_vegan_pool = [
         "Fresh garden salad with roasted beets, candied walnuts, and crumbled goat cheese with honey vinaigrette.",
@@ -100,6 +104,15 @@ def generate_dietary_vegan_cases(n: int = 4000) -> List[dict]:
         "Strawberry gummy candies made with sugar, fruit puree, and beef gelatin.",
         "Veggie burger patty bound with egg whites and whey protein concentrate.",
         "French fries fried in traditional beef tallow alongside vegetable oil.",
+        "Margherita pizza: San Marzano tomato sauce, fresh mozzarella cheese, and fresh basil.",
+        "Roasted almonds coated with a sweet honey glaze and sea salt.",
+        "Bread loaf: unbleached flour, filtered water, yeast, sea salt, and whey powder.",
+        "California sushi roll: sushi rice, toasted nori, avocado, cucumber, and imitation crab (surimi).",
+        "Thai vegetable stir-fry seasoned with authentic fermented fish sauce and garlic.",
+        "Powdered non-dairy creamer: corn syrup solids, vegetable oil, and sodium caseinate (milk derivative).",
+        "Red strawberry fruit chew candy: organic cane sugar, corn syrup, pectin, and carmine (E120) for color.",
+        "Hot and sour soup flavored with traditional chicken broth and egg ribbon drops.",
+        "Dark chocolate truffles containing heavy cream and butter oil.",
     ]
 
     records = []
@@ -147,6 +160,8 @@ def generate_fair_housing_cases(n: int = 4000) -> List[dict]:
         "Renovated 1BR unit. Tenant is responsible for electric and internet; water and trash included.",
         "Quiet suburban townhouse. Background check and prior landlord references required for all applicants.",
         "Corner 2BR unit available Nov 1. Maximum occupancy capped at 4 persons per municipal housing code.",
+        "Age-restricted 55+ active-adult community with on-site clubhouse, fitness center, and pool.",
+        "Senior living apartment complex for independent residents aged 62 and older.",
     ]
 
     records = []
@@ -380,59 +395,72 @@ def generate_commit_intent_cases(n: int = 5000) -> List[dict]:
 # 3. Content & Linguistics Cluster (Grammar, Formality, Reading Level)
 # =====================================================================
 
-def generate_grammar_cases(n: int = 6000) -> List[dict]:
-    instruction = "Which grammatical issue does this sentence contain?"
+def generate_grammar_cases(n: int = 8000) -> List[dict]:
+    instruction = "What is the primary grammar issue in this sentence?"
     criteria = {
-        "subject_verb_agreement": "Mismatch in number (singular vs plural) between subject and main verb",
-        "comma_splice": "Joining two independent clauses with only a comma without coordinating conjunction",
-        "dangling_modifier": "A descriptive phrase modifying the wrong subject or lacking clear subject",
-        "fragment": "Incomplete sentence missing a subject or main verb clause",
-        "run_on": "Two independent clauses merged without appropriate punctuation or conjunction",
-        "none": "The sentence is grammatically correct and well-formed",
+        "spelling": "A misspelled word",
+        "subject_verb_agreement": "The verb form doesn't match the subject",
+        "word_choice": "The wrong word is used — homophones, malapropisms, or incorrect forms",
+        "punctuation": "A missing or misplaced comma, apostrophe, or other mark",
+        "none": "The sentence is grammatically fine as written",
     }
     options = [{"id": k, "description": v} for k, v in criteria.items()]
 
     examples = {
+        "spelling": [
+            "I recieve the quarterly report every Friday afternoon.",
+            "The hotel accomodation was excelent and clean.",
+            "The product launch is definately scheduled for next Tuesday.",
+            "That Italian restaraunt on 5th Avenue serves wonderful pasta.",
+            "Please acknowledge receipt of the attached calender invite.",
+            "We noticed a noticeable difernce in query latency after the patch.",
+            "The engineer tried to troubleshoot the wierd database crash.",
+            "I will attend the meeting seprately from the rest of the team.",
+        ],
         "subject_verb_agreement": [
+            "She don't like the new deployment schedule.",
+            "He walk to work every day regardless of rain.",
             "The cluster of database servers are experiencing severe latency.",
             "Each of the software engineers have submitted their annual review.",
             "Neither the manager nor her team members was informed of the migration.",
             "A comprehensive list of user permissions were deleted by the script.",
+            "One of the primary worker threads keep failing with a timeout.",
+            "The revenue numbers from the EMEA region shows significant growth.",
         ],
-        "comma_splice": [
-            "The test suite finished running, all unit tests passed with zero errors.",
-            "We deployed the hotfix at midnight, the customer reported no further issues.",
-            "The API returned a 500 status code, we immediately escalated to the on-call engineer.",
-            "I checked the server logs, there was no sign of suspicious network activity.",
+        "word_choice": [
+            "Their going to be late for the product demo.",
+            "The flowers in the courtyard smell wonderfully today.",
+            "We should of checked the database disk capacity earlier.",
+            "How will this platform migration effect our quarterly revenue?",
+            "I could care less about what our competitor launched yesterday.",
+            "Please ensure you loose none of the hardware security tokens.",
+            "Her design suggestions served as a great compliment to the backend architecture.",
+            "Your going to need an administrative API key to make that request.",
         ],
-        "dangling_modifier": [
-            "Walking into the data center, the cold draft of server fans was immediately felt.",
-            "Having reviewed the pull request, several critical security flaws were uncovered.",
-            "After debugging the memory leak for three hours, the coffee cup was empty.",
-            "To deploy the application to production, credentials must be configured first.",
-        ],
-        "fragment": [
-            "Because the network gateway timed out before the transaction could be committed.",
-            "Which is why our security team mandates hardware security keys for all staff.",
-            "Although the database backup completed without any reported errors last night.",
-            "Especially during high-traffic promotional events with thousands of concurrent shoppers.",
-        ],
-        "run_on": [
-            "The deployment failed we had to roll back to the previous version immediately.",
-            "The customer requested a full refund they had not used any of their monthly quota.",
-            "We upgraded the memory capacity the server still crashed under peak load.",
-            "The documentation is clear anyone can follow the setup instructions easily.",
+        "punctuation": [
+            "Lets get lunch together after the team retrospective.",
+            "We arrived, at noon to set up the conference booth.",
+            "Its a shame the staging cluster was taken offline today.",
+            "I bought apples oranges and bananas at the supermarket.",
+            "The server crashed, we lost an hour of uncommitted transaction data.",
+            "Where did you leave the keys.",
+            "Employees cars should be parked in the designated east lot.",
+            "The meeting starts at 900 AM sharp tomorrow morning.",
         ],
         "none": [
             "The engineering team deployed the new release after all tests passed successfully.",
             "Because the server memory was exhausted, the application crashed unexpectedly.",
             "She reviewed the contract carefully before signing the three-year service agreement.",
             "When the on-call engineer received the alert, she immediately investigated the root cause.",
+            "Neither the manager nor the employees were informed about the office relocation.",
+            "Nobody knows where the database migration script was saved.",
+            "The company achieved its annual revenue targets despite market headwinds.",
+            "Please submit your travel expense reports before the end of the month.",
         ],
     }
 
     records = []
-    for _ in range(n // 6):
+    for _ in range(n // 5):
         for err_type, pool in examples.items():
             records.append({
                 "state": random.choice(pool),
@@ -587,6 +615,154 @@ def generate_veterinary_triage_cases(n: int = 4000) -> List[dict]:
     return records
 
 
+def generate_ad_policy_cases(n: int = 5000) -> List[dict]:
+    instruction = "Does this advertising copy violate platform advertising guidelines?"
+    criteria = {
+        "true": "Contains prohibited claims: guaranteed investment returns, miracle weight loss, deceptive before/afters, or counterfeit goods",
+        "false": "Compliant advertising promoting legitimate commercial products with transparent terms and reasonable claims",
+    }
+    options = [
+        {"id": "yes", "description": criteria["true"]},
+        {"id": "no", "description": criteria["false"]},
+    ]
+
+    violation_pool = [
+        "Guaranteed 500% monthly returns on automated crypto trading! Zero risk, double your money in 48 hours.",
+        "Drop 30 pounds in 7 days without diet or exercise! Secret miracle belly fat burner doctors don't want you to know.",
+        "100% authentic Rolex luxury watches direct from unauthorized supplier, 95% off retail price.",
+        "Borrow up to $5,000 instantly with zero credit check and guaranteed approval regardless of bankruptcy.",
+        "Cure diabetes and hypertension permanently with this natural herbal tea formula!",
+    ]
+    compliant_pool = [
+        "Upgrade your home office with our ergonomic mesh chair. 30-day money-back guarantee and free shipping.",
+        "Learn Python and SQL with interactive hands-on coding exercises. Start your free 7-day trial today.",
+        "Freshly roasted single-origin coffee beans delivered to your doorstep every two weeks. Cancel anytime.",
+        "All-natural moisturizing face cream with hyaluronic acid and shea butter. Dermatologist-tested.",
+        "Manage cloud infrastructure costs with automated usage reports and anomaly alerts. Book a demo.",
+    ]
+
+    records = []
+    for _ in range(n // 2):
+        records.append({
+            "state": random.choice(violation_pool),
+            "question": instruction,
+            "options": options,
+            "label": "yes",
+            "source": "ad_policy_pos",
+        })
+        records.append({
+            "state": random.choice(compliant_pool),
+            "question": instruction,
+            "options": options,
+            "label": "no",
+            "source": "ad_policy_neg",
+        })
+    return records
+
+
+def generate_allergen_cases(n: int = 5000) -> List[dict]:
+    instruction = "Does this food item or recipe contain common major allergens (peanuts, tree nuts, milk/dairy, eggs, fish, shellfish, soy, or wheat)?"
+    criteria = {
+        "true": "Contains one or more major common allergens: peanuts, nuts, dairy, eggs, fish, crustaceans, soy, or wheat",
+        "false": "Free from major common allergens: verified allergen-free simple fruits, vegetables, seeds, or plain grains",
+    }
+    options = [
+        {"id": "yes", "description": criteria["true"]},
+        {"id": "no", "description": criteria["false"]},
+    ]
+
+    allergen_pool = [
+        "Pad Thai noodles cooked with crushed peanuts, scrambled eggs, and tofu.",
+        "Homemade chocolate chip cookies containing butter, whole milk, and wheat flour.",
+        "Cream of mushroom soup made with heavy dairy cream and parmesan cheese.",
+        "Grilled salmon fillet with lemon butter sauce.",
+        "Pesto pasta made with pine nuts, fresh basil, garlic, and parmesan cheese.",
+        "Teriyaki chicken bowl glazed with authentic brewed soy sauce and sesame seeds.",
+        "New England clam chowder made with ocean clams, milk, butter, and bacon.",
+    ]
+    safe_pool = [
+        "Steamed white jasmine rice topped with roasted broccoli and olive oil.",
+        "Fresh fruit salad: sliced strawberries, blueberries, pineapple, and watermelon with lime juice.",
+        "Baked sweet potato topped with cinnamon and pure maple syrup.",
+        "Bowl of steamed organic quinoa with diced avocados, cherry tomatoes, and cucumber.",
+        "Roasted carrots and zucchini tossed in virgin olive oil, sea salt, and black pepper.",
+        "Plain sparkling water infused with fresh lemon and mint leaves.",
+    ]
+
+    records = []
+    for _ in range(n // 2):
+        records.append({
+            "state": random.choice(allergen_pool),
+            "question": instruction,
+            "options": options,
+            "label": "yes",
+            "source": "allergen_pos",
+        })
+        records.append({
+            "state": random.choice(safe_pool),
+            "question": instruction,
+            "options": options,
+            "label": "no",
+            "source": "allergen_neg",
+        })
+    return records
+
+
+def generate_symptom_triage_cases(n: int = 6000) -> List[dict]:
+    instruction = "How urgently does this patient need medical care, based on their message?"
+    criteria = [
+        {"id": "0", "description": "Emergency: needs immediate emergency response — call 911 or go to the ER now"},
+        {"id": "1", "description": "Same-day urgent care"},
+        {"id": "2", "description": "Appointment within a few days"},
+        {"id": "3", "description": "Self-care or routine follow-up"},
+    ]
+
+    pools = {
+        "0": [
+            "Crushing chest pain spreading to my left arm and jaw, started 20 minutes ago, and I feel short of breath.",
+            "My 8-year-old has a fever of 39.5 and I cannot wake her up properly.",
+            "Sudden headache, the worst of my life, hit me like a thunderclap ten minutes ago.",
+            "My blood glucose reading is 38 and I am shaky, confused, and sweating profusely.",
+            "My 2-year-old swallowed a button battery about an hour ago.",
+            "Sudden weakness on one side of my face and slurred speech, started 30 minutes ago.",
+            "A bee stung me ten minutes ago and my throat is swelling up and I can barely breathe.",
+        ],
+        "1": [
+            "I cut my finger chopping vegetables; it has not stopped bleeding after 15 minutes of direct pressure.",
+            "Severe toothache since last night and my face is swelling on one side; painkillers are not touching it.",
+            "A hot pan burned the back of my hand; it blistered and it is very painful.",
+            "My 3-year-old will not move her arm after her cousin yanked it; she cries if I touch it.",
+            "I twisted my knee on the stairs; it is twice its normal size and I cannot put weight on it.",
+            "Deep cut on forearm from broken glass, gaping open and requiring stitches.",
+        ],
+        "2": [
+            "An itchy rash on my arms has been spreading for two days; over-the-counter antihistamines barely help.",
+            "Constipated for a week, bloated and uncomfortable; fiber and water are not doing anything.",
+            "Mild persistent cough and nasal congestion for the past four days with low-grade fever.",
+            "Sprained my ankle three days ago; swelling is down but still tender when walking.",
+        ],
+        "3": [
+            "Mild sore throat for two days, no fever.",
+            "Woke up with a stiff neck that hurts when I turn; otherwise I feel fine.",
+            "My prescription has run out; I need a refill of my usual maintenance dose.",
+            "Mild sunburn from the beach — skin is red and warm, no blisters.",
+            "It is my usual migraine with the usual aura — I just need my prescription refill to kick in.",
+        ],
+    }
+
+    records = []
+    for _ in range(n // 4):
+        for lvl, pool in pools.items():
+            records.append({
+                "state": random.choice(pool),
+                "question": instruction,
+                "options": criteria,
+                "label": lvl,
+                "source": f"symptom_{lvl}",
+            })
+    return records
+
+
 def generate_expense_cases(n: int = 4000) -> List[dict]:
     instruction = "Which expense category does this business expense belong to?"
     criteria = {
@@ -673,42 +849,45 @@ def build_universal_corpus(
 
     # 1. Compliance & Regulatory
     print("Synthesizing Compliance & Regulatory cluster...")
-    all_records.extend(generate_hazmat_cases(8000))
-    all_records.extend(generate_dietary_vegan_cases(8000))
-    all_records.extend(generate_fair_housing_cases(8000))
-    all_records.extend(generate_travel_policy_cases(8000))
-    all_records.extend(generate_refund_policy_cases(10000))
+    all_records.extend(generate_hazmat_cases(10000))
+    all_records.extend(generate_dietary_vegan_cases(10000))
+    all_records.extend(generate_fair_housing_cases(10000))
+    all_records.extend(generate_travel_policy_cases(10000))
+    all_records.extend(generate_ad_policy_cases(10000))
+    all_records.extend(generate_allergen_cases(10000))
+    all_records.extend(generate_refund_policy_cases(12000))
 
     # 2. Security & DevOps
     print("Synthesizing Security & DevOps cluster...")
-    all_records.extend(generate_sql_injection_cases(8000))
-    all_records.extend(generate_phishing_cases(8000))
-    all_records.extend(generate_secret_leak_cases(8000))
-    all_records.extend(generate_commit_intent_cases(8000))
+    all_records.extend(generate_sql_injection_cases(10000))
+    all_records.extend(generate_phishing_cases(10000))
+    all_records.extend(generate_secret_leak_cases(10000))
+    all_records.extend(generate_commit_intent_cases(10000))
 
     # 3. Content & Linguistics
     print("Synthesizing Content & Linguistics cluster...")
-    all_records.extend(generate_grammar_cases(12000))
-    all_records.extend(generate_formality_cases(10000))
-    all_records.extend(generate_reading_level_cases(10000))
+    all_records.extend(generate_grammar_cases(15000))
+    all_records.extend(generate_formality_cases(12000))
+    all_records.extend(generate_reading_level_cases(12000))
 
     # 4. Operations & Triage
     print("Synthesizing Operations & Triage cluster...")
-    all_records.extend(generate_veterinary_triage_cases(8000))
-    all_records.extend(generate_expense_cases(8000))
-    all_records.extend(generate_department_triage_cases(10000))
-    all_records.extend(generate_operational_urgency_cases(8000))
-    all_records.extend(generate_frustration_score_cases(8000))
-    all_records.extend(generate_incident_severity_cases(8000))
+    all_records.extend(generate_symptom_triage_cases(12000))
+    all_records.extend(generate_veterinary_triage_cases(10000))
+    all_records.extend(generate_expense_cases(10000))
+    all_records.extend(generate_department_triage_cases(12000))
+    all_records.extend(generate_operational_urgency_cases(10000))
+    all_records.extend(generate_frustration_score_cases(10000))
+    all_records.extend(generate_incident_severity_cases(10000))
 
     # 5. Open Curated Intent & Sentiment Datasets
     print("Loading curated intent datasets...")
-    all_records.extend(prepare_banking_choice(15000))
-    all_records.extend(prepare_emotion_sentiment(12000))
+    all_records.extend(prepare_banking_choice(20000))
+    all_records.extend(prepare_emotion_sentiment(16000))
 
     # 6. Reasoning Core (ANLI & WANLI)
     print("Loading Adversarial Reasoning Core (ANLI + WANLI)...")
-    all_records.extend(prepare_adversarial_core(40000))
+    all_records.extend(prepare_adversarial_core(50000))
 
     random.shuffle(all_records)
     print(f"\nTotal collected Universal records: {len(all_records):,}")

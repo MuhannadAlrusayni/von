@@ -64,7 +64,7 @@ class OptionMarkerBackend(BaseBackend):
                     # Load trained OptionMarkerModel
                     model = OptionMarkerModel(base_model_id=self.checkpoint_dir)
                     state_dict = torch.load(pt_path, map_location=self.device, weights_only=True)
-                    model.load_state_dict(state_dict)
+                    model.load_state_dict(state_dict, strict=False)
                 else:
                     # Download from Hugging Face Hub
                     try:
@@ -72,7 +72,7 @@ class OptionMarkerBackend(BaseBackend):
                         cached_pt = hf_hub_download(repo_id="wfzyx/von-1.0", filename="option_marker.pt")
                         model = OptionMarkerModel(base_model_id="wfzyx/von-1.0")
                         state_dict = torch.load(cached_pt, map_location=self.device, weights_only=True)
-                        model.load_state_dict(state_dict)
+                        model.load_state_dict(state_dict, strict=False)
                     except Exception:
                         base_id = "checkpoints/von-modernbert-rlcd" if os.path.exists("checkpoints/von-modernbert-rlcd") else "wfzyx/von-1.0"
                         model = OptionMarkerModel(base_model_id=base_id)
@@ -151,17 +151,17 @@ class OptionMarkerBackend(BaseBackend):
         tok = model.tokenizer
 
         crit = q.criteria or {}
-        pos_desc = crit.get("true", "Yes, condition holds true.")
-        neg_desc = crit.get("false", "No, condition is false.")
+        pos_desc = crit.get("true")
+        neg_desc = crit.get("false")
 
-        descriptions = [
-            f"{q.instructions} {pos_desc}".strip(),
-            f"{q.instructions} {neg_desc}".strip(),
-        ]
+        has_explicit = bool(pos_desc or neg_desc)
+        if not pos_desc:
+            pos_desc = "Yes, condition holds true."
+        if not neg_desc:
+            neg_desc = "No, condition is false."
 
-        mask = tok.mask_token
-        sep = tok.sep_token
-        packed_text = f"{state_text} {sep} {mask} {descriptions[0]} {mask} {descriptions[1]}"
+        descriptions = [pos_desc, neg_desc]
+        packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
         input_ids = inputs["input_ids"][0]
@@ -174,6 +174,21 @@ class OptionMarkerBackend(BaseBackend):
                 mask_positions=[pos_list],
             )
             logits = batch_logits[0]
+
+            # In zero-shot Noul without explicit criteria, cancel out the intrinsic negative polarity prior
+            if not has_explicit:
+                null_packed = model.pack_sequence("", q.instructions, descriptions)
+                null_inputs = tok(null_packed, return_tensors="pt").to(self.device)
+                null_pos = (null_inputs["input_ids"][0] == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
+                null_logits = model(
+                    input_ids=null_inputs["input_ids"],
+                    attention_mask=null_inputs["attention_mask"],
+                    mask_positions=[null_pos],
+                )[0]
+                # Conservative context-free debiasing
+                bias = null_logits[0] - null_logits[1]
+                logits = torch.stack([logits[0] - 0.7 * bias, logits[1]])
+
             scaled = logits / max(temperature, 1e-4)
             probs = torch.softmax(scaled, dim=-1).cpu().tolist()
 
@@ -209,12 +224,9 @@ class OptionMarkerBackend(BaseBackend):
             else:
                 desc = str(item).strip()
             legend[idx_str] = desc
-            descriptions.append(f"The condition is {desc}")
+            descriptions.append(desc)
 
-        mask = tok.mask_token
-        sep = tok.sep_token
-        prefix = f"{inst_clean} {state_text}".strip() if inst_clean else state_text
-        packed_text = f"{prefix} {sep} " + " ".join(f"{mask} {d}" for d in descriptions)
+        packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
         input_ids = inputs["input_ids"][0]

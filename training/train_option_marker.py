@@ -125,6 +125,7 @@ def train(
     grad_accum_steps: int = 2,
     lr: float = 3e-5,
     brier_weight: float = 0.5,
+    max_position_embeddings: int = 8192,
 ):
     is_ddp = "RANK" in os.environ
     if is_ddp:
@@ -144,7 +145,10 @@ def train(
         print(f"Device: {device} (World Size: {world_size}, DDP: {is_ddp})")
         print(f"Loading OptionMarkerModel with base: {base_model_id}...")
 
-    model = OptionMarkerModel(base_model_id=base_model_id).to(device)
+    model = OptionMarkerModel(
+        base_model_id=base_model_id,
+        max_position_embeddings=max_position_embeddings,
+    ).to(device)
     tokenizer = model.tokenizer
 
     train_ds = OptionMarkerDataset(train_path)
@@ -320,6 +324,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default="checkpoints/von-option-marker")
     parser.add_argument("--s3_target", type=str, default="s3://model-weight/von-option-marker")
     parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--max_position_embeddings", type=int, default=8192)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--grad_accum_steps", type=int, default=2)
     parser.add_argument("--lr", type=float, default=3e-5)
@@ -337,4 +342,5 @@ if __name__ == "__main__":
         grad_accum_steps=args.grad_accum_steps,
         lr=args.lr,
         brier_weight=args.brier_weight,
+        max_position_embeddings=args.max_position_embeddings,
     )

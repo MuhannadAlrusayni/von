@@ -339,6 +339,41 @@ curl -X POST http://localhost:8000/v1/systemone \
 
 ---
 
+## Training Data & Domain Coverage
+
+Von is built on **ModernBERT-Large** (395M parameters, pretrained on 2 trillion tokens of general web text, technical literature, and code) and fine-tuned for high-speed, non-autoregressive decision making.
+
+### Fine-Tuning Corpus Composition
+The decision-scoring head and representation space are fine-tuned across a **~290,000-example balanced multi-domain corpus**:
+
+| Domain Cluster | Share | Representative Tasks & Coverage |
+|---|---|---|
+| **Operational & Enterprise Workflow** | ~25% | IT support ticket triage, customer intent routing (Banking77), billing/refund dispute policies, warranty verification, e-commerce order exceptions. |
+| **Security, DevOps & Compliance** | ~20% | Credential & secret leak detection, SQL injection / payload screening, phishing analysis, commit intent classification, on-call alert routing, PII detection. |
+| **Safety, Policy & Moderation** | ~15% | Ad policy violations, Fair Housing Act compliance, travel expense policy limits, Terms of Service gating. |
+| **Linguistic & Content Semantics** | ~15% | Formality grading, grammar error taxonomies (spelling, syntax, agreement), sentiment analysis, reading level estimation. |
+| **Triage & Services** | ~10% | Clinical/symptom urgency triage, veterinary severity scoring, municipal 311 service routing, dietary restriction & allergen verification. |
+| **Adversarial Reasoning Anchor** | ~15% | Multi-task NLI reasoning (ANLI Rounds 1–3, WANLI) retained to anchor logical entailment and prevent catastrophic forgetting of general world logic. |
+
+### Domain Generalization & Out-of-Domain Tasks (e.g. Education, Academia)
+
+- **How Von reasons:** Unlike generative LLMs that synthesize paragraphs, Von is an **in-context semantic verifier**. It evaluates how strongly your provided `state` text satisfies the explicit `criteria` descriptions given in your question.
+- **Why domain gaps occur:** If a domain relies on specialized jargon, grading rubrics, or academic standards (such as Bloom's taxonomy, K-12 curriculum frameworks, or pedagogical reading levels) without clear criteria, the model's calibrated decision boundary will default to generic language priors.
+- **Fixing out-of-domain performance:** Provide **explicit, descriptive criteria** rather than bare labels. For example, instead of asking for `["beginner", "advanced"]`, provide concrete operational definitions:
+  ```python
+  von.choice(
+      instructions="Classify student essay reading grade level.",
+      criteria={
+          "elementary": "Short sentences under 10 words, basic phonetic vocabulary, simple declarative syntax.",
+          "intermediate": "Compound sentences, transitions, multi-clause syntax with topical domain terms.",
+          "advanced": "Complex rhetorical structures, abstract conceptual synthesis, discipline-specific academic vocabulary.",
+      }
+  )
+  ```
+  Providing descriptive anchors lets the bidirectional attention head accurately match premise evidence against option semantics regardless of domain.
+
+---
+
 ## Theoretical Homage
 
 Von is named in recognition of two foundational figures in the formalization of computation and decision theory:
