@@ -18,7 +18,7 @@ categories = [
     "Macro\nAverage",
 ]
 
-von_scores = [86.7, 100.0, 87.5, 100.0, 100.0, 100.0, 100.0, 70.0, 93.0]
+von_scores = [100.0, 100.0, 100.0, 100.0, 88.9, 100.0, 88.9, 70.0, 93.5]
 gliner_scores = [93.3, 90.0, 50.0, 100.0, 55.6, 88.9, 100.0, 50.0, 78.5]
 jev_scores = [100.0, 100.0, 100.0, 100.0, 77.8, 100.0, 100.0, 100.0, 97.2]
 
@@ -36,7 +36,7 @@ rects1 = ax.bar(
     x - width,
     von_scores,
     width,
-    label="Von-1.0 (ModernBERT RLCD, Local)",
+    label="Von-1.0 (Option-Marker, Local)",
     color="#00e5ff",
     edgecolor="#00b4d8",
     linewidth=1.2,

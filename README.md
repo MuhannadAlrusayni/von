@@ -31,11 +31,11 @@ Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmar
 
 | Model | Model Size | Macro Acc | Micro Acc | MPS / GPU Latency | CPU Latency | Hosting / Pricing |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von-1.0** (Current) | **395M params (1.5 GB)** | **93.0%** | **92.3%** | **~62 ms** | **~300 ms** | **Local / Free (Apache 2.0)** |
+| **Von-1.0** (Current) | **395M params (1.5 GB)** | **93.5%** | **93.6%** | **~18 ms** | **~480 ms** | **Local / Free (Apache 2.0)** |
 | **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 78.5% | 79.5% | ~93 ms | ~500 ms | Local / Free (Apache 2.0) |
 | **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary | 97.2% | 97.4% | ~302 ms (API) | N/A (Cloud Only) | $0.042 / 1M tokens |
 
-*Measured on Apple MPS and CPU across 78 test cases. Validation accuracy on held-out decision split: 96.43% ($T = 1.1692$).*
+*Measured on Apple MPS and CPU across 78 test cases. Single-pass Option-Marker joint attention with 95.70% held-out validation accuracy.*
 
 <p align="center">
   <img src="assets/benchmark_comparison.png" alt="Von-1.0 vs GLiNER2 vs TypeSafe Jev Task Breakdown" width="850">
@@ -45,16 +45,16 @@ Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmar
 
 | Decision Task | Primitive Type | Von-1.0 | GLiNER2 | TypeSafe Jev | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **support_department** | Choice (5-way) | **0.867** | **0.933** | 1.000 | 13/15 correct queue routing |
-| **email_intent** | Choice (5-way) | **1.000** | 0.900 | **1.000** | Perfect 10/10 intent triage |
-| **secret_leak** | Noul (Binary) | **0.875** | 0.500 | **1.000** | 7/8 correct credential detection |
-| **urgency** | Noul (Binary) | **1.000** | **1.000** | **1.000** | Perfect 8/8 outage & time gating |
+| **support_department** | Choice (5-way) | **1.000** | **0.933** | 1.000 | **Perfect 15/15 queue routing** |
+| **email_intent** | Choice (5-way) | **1.000** | 0.900 | **1.000** | **Perfect 10/10 intent triage** |
+| **secret_leak** | Noul (Binary) | **1.000** | 0.500 | **1.000** | **Perfect 8/8 credential & passphrase detection** |
+| **urgency** | Noul (Binary) | **1.000** | **1.000** | **1.000** | **Perfect 8/8 outage & time gating** |
 | **refund_eligible** | Noul (Binary) | **0.700** | 0.500 | **1.000** | Temporal policy verification (7/10) |
-| **frustration_level** | Score (3-level) | **1.000** | **1.000** | **1.000** | Perfect 9/9 customer emotion calibration |
-| **incident_severity** | Score (5-level) | **1.000** | 0.556 | 0.778 | **Beats Jev & GLiNER2 (9/9 perfect)** |
-| **review_sentiment** | Score (5-level) | **1.000** | 0.889 | **1.000** | Perfect 9/9 5-star sentiment rating |
-| **Macro Average** | Across 8 tasks | **0.930** | 0.785 | **0.972** | **Von beats GLiNER2 (+14.5%)** |
-| **Micro Average** | Across 78 cases | **0.923** | 0.795 | **0.974** | **Von beats GLiNER2 (+12.8%)** |
+| **frustration_level** | Score (3-level) | **0.889** | **1.000** | **1.000** | Customer emotion calibration (8/9) |
+| **incident_severity** | Score (5-level) | **0.889** | 0.556 | 0.778 | **Beats Jev (0.778) & GLiNER2 (0.556)** |
+| **review_sentiment** | Score (5-level) | **1.000** | 0.889 | **1.000** | **Perfect 9/9 5-star sentiment rating** |
+| **Macro Average** | Across 8 tasks | **0.935** | 0.785 | **0.972** | **Von beats GLiNER2 (+15.0%)** |
+| **Micro Average** | Across 78 cases | **0.936** | 0.795 | **0.974** | **Von beats GLiNER2 (+14.1%)** |
 
 ---
 

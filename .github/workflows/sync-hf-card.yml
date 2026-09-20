@@ -41,7 +41,7 @@ jobs:
           repo_id = "wfzyx/von-1.0"
 
           # Upload updated model card
-          card_path = "checkpoints/von-modernbert-rlcd/README.md"
+          card_path = "checkpoints/von-modernbert-rlcd/README.md" if os.path.exists("checkpoints/von-modernbert-rlcd/README.md") else "README.md"
           if os.path.exists(card_path):
               print(f"Uploading {card_path} to {repo_id}...")
               api.upload_file(

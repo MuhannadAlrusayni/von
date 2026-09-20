@@ -174,7 +174,13 @@ def train(
         print(f"  -> Grad Accum:      {grad_accum_steps} (Effective: {batch_size * grad_accum_steps * world_size})")
         print(f"  -> Total Steps:     {total_steps:,}\n")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+    optimizer = torch.optim.AdamW(
+        [
+            {"params": model.encoder.parameters(), "lr": lr * 0.5},
+            {"params": model.scorer.parameters(), "lr": lr * 2.5},
+        ],
+        weight_decay=0.01,
+    )
     scheduler = get_cosine_schedule_with_warmup(
         optimizer,
         num_warmup_steps=int(total_steps * 0.08),
@@ -299,7 +305,7 @@ if __name__ == "__main__":
     parser.add_argument("--base_model_id", type=str, default="checkpoints/von-modernbert-rlcd")
     parser.add_argument("--output_dir", type=str, default="checkpoints/von-option-marker")
     parser.add_argument("--s3_target", type=str, default="s3://model-weight/von-option-marker")
-    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--grad_accum_steps", type=int, default=2)
     parser.add_argument("--lr", type=float, default=3e-5)

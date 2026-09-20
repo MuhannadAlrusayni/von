@@ -29,7 +29,10 @@ class VonEngine:
     def __init__(self, backend_name: str = "von-1.0", device: Optional[str] = None):
         self.backend_name = backend_name.lower().strip()
         self.device = device or os.environ.get("VON_DEVICE")
-        if self.backend_name in ("von-1.0", "von", "modernbert", "default", "berta-modern", "modernbert-nli"):
+        if self.backend_name in ("option-marker", "von-marker", "marker", "option_marker"):
+            from .backends.option_marker_backend import OptionMarkerBackend
+            self.backend = OptionMarkerBackend(device=self.device)
+        elif self.backend_name in ("von-1.0", "von", "modernbert", "default", "berta-modern", "modernbert-nli"):
             self.backend: BaseBackend = BertaBackend(variant="von-1.0", device=self.device)
         else:
             # Check for local benchmark backends if installed

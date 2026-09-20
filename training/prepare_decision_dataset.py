@@ -38,7 +38,19 @@ def generate_refund_policy_cases(n: int = 6000) -> List[dict]:
         "never activated it", "haven't created an account yet", "nobody on our team started using it",
         "ended up not using the product at all", "bought for a project that got cancelled",
         "zero API calls were made", "completely unused", "not a single login was recorded",
-        "never touched the dashboard", "we purchased by accident and never deployed"
+        "never touched the dashboard", "we purchased by accident and never deployed",
+        "nothing was ever used", "bought a different tool instead and never logged in"
+    ]
+    
+    # Implicit entitlement cases (facts satisfy precondition without using the word "refund")
+    implicit_pos_cases = [
+        "My annual subscription charge went through yesterday. I have not even created an account yet.",
+        "It has been three weeks since checkout. We ended up not using the product at all because we bought a different tool.",
+        "I bought this yesterday for a project that got cancelled. Nothing was ever used.",
+        "The trial converted to a paid plan this morning and nobody on my team has started using it yet.",
+        "Purchased five days ago for an engineer who left the company before ever logging in.",
+        "Our invoice was paid last week, but our procurement team rejected the software before deployment.",
+        "Account was charged 48 hours ago. We never integrated the SDK or made any requests.",
     ]
     
     # Negative templates (exceeds window OR used)
@@ -61,17 +73,23 @@ def generate_refund_policy_cases(n: int = 6000) -> List[dict]:
 
     for _ in range(n // 2):
         # Positive case (Eligible)
-        t = random.choice(pos_time_phrases)
-        p = random.choice(pos_plans)
-        u = random.choice(pos_unused_phrases)
-        templates = [
-            f"I purchased the {p} {t}, {u}, and would like my money back.",
-            f"My {p} charge went through {t}. We {u}. Please process a refund.",
-            f"We bought the {p} {t} for a test run. {u.capitalize()}. Looking for a full reimbursement.",
-            f"Subscription for {p} renewed {t}. {u.capitalize()}, can you please refund?",
-        ]
+        if random.random() < 0.35 and implicit_pos_cases:
+            # Inject implicit fact-based entitlement
+            state_text = random.choice(implicit_pos_cases)
+        else:
+            t = random.choice(pos_time_phrases)
+            p = random.choice(pos_plans)
+            u = random.choice(pos_unused_phrases)
+            templates = [
+                f"I purchased the {p} {t}, {u}, and would like my money back.",
+                f"My {p} charge went through {t}. We {u}. Please process a refund.",
+                f"We bought the {p} {t} for a test run. {u.capitalize()}. Looking for a full reimbursement.",
+                f"Subscription for {p} renewed {t}. {u.capitalize()}, can you please refund?",
+            ]
+            state_text = random.choice(templates)
+
         records.append({
-            "state": random.choice(templates),
+            "state": state_text,
             "question": instruction,
             "options": [
                 {"id": "yes", "description": "The condition holds true and the customer is entitled to a refund."},
@@ -127,16 +145,21 @@ def generate_secret_leak_cases(n: int = 5000) -> List[dict]:
         "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA7vZxTestOnlyKeyMaterial\n-----END RSA PRIVATE KEY-----",
         "eyJhYmMiOiJkZWYifQ.eyJhYmMiOiJkZWYifQ.testsignatureonly1234567890"
     ]
-    passwords = ["hunter2!", "correct-horse-battery-staple", "P@ssw0rd2026!", "AdminSecret99#", "ProdDbRootPass2026"]
+    passwords = [
+        "hunter2!", "correct-horse-battery-staple", "P@ssw0rd2026!",
+        "AdminSecret99#", "ProdDbRootPass2026", "blue-tiger-lemon-window",
+        "temporary-support-password-44"
+    ]
 
     pos_templates = [
         "Deploy using API_KEY={key}",
         "The WIFI_PASSWORD for the conference room is {pwd}",
         "Here is the key for support replication: {key}",
-        "You can log in as admin with the password {pwd}",
+        "You can log in as admin with the password {pwd}.",
         "DATABASE_URL=postgres://admin:{pwd}@db.internal:5432/main",
         "curl -H 'Authorization: Bearer {key}' https://api.service.internal",
         "Secret token leaked in logs: TOKEN={key}",
+        "Emergency root access credentials: user=root pass={pwd}",
     ]
 
     neg_templates = [
@@ -341,6 +364,75 @@ def generate_incident_severity_cases(n: int = 5000) -> List[dict]:
     return records
 
 
+def generate_department_triage_cases(n: int = 8000) -> List[dict]:
+    """Generates 5-class department queue routing cases (billing, tech, sales, account, other)."""
+    instruction = "Which team should handle this support message?"
+    criteria = {
+        "billing": "Refunds, payments, invoices, subscriptions, or unexpected charges",
+        "tech": "Bugs, errors, crashes, downtime, or integration failures",
+        "sales": "Pricing questions, quotes, upgrades, demos, or new purchases",
+        "account": "Login issues, password resets, profile changes, or data deletion requests",
+        "other": "Anything that does not match the other categories",
+    }
+    options = [{"id": k, "description": v} for k, v in criteria.items()]
+
+    tickets = {
+        "billing": [
+            "I was charged twice on my card this month for the same subscription, how do I get that fixed?",
+            "I want to cancel my annual plan and get a refund for the unused months.",
+            "The invoice PDF shows the wrong VAT number on line 3.",
+            "Payment failed on credit card ending in 4242. How do I update payment method?",
+            "Can you send a receipt for our last three billing cycles for accounting?",
+            "We were billed for 50 seats but only 35 users are currently active.",
+        ],
+        "tech": [
+            "The iOS app crashes immediately every time I try to open a report.",
+            "The API returns a 500 error whenever we upload files larger than 10MB.",
+            "Our SSO integration with Okta started returning empty profiles this morning after your release.",
+            "PostgreSQL connection pool exhausted on port 5432, throwing connection refused.",
+            "Webhook deliveries are failing intermittently with timeout errors.",
+            "Database deadlock during concurrent writes on the events table.",
+            "Frontend displays a blank white screen on Safari 17.",
+        ],
+        "sales": [
+            "Do you offer a discount if we buy 50 seats for our team?",
+            "Can I book a demo of the enterprise features for next Tuesday?",
+            "What does the Pro plan cost per seat per month?",
+            "We need a formal quote including on-prem hosting for a 3-year term.",
+            "Looking to speak with an account executive regarding custom SLA tiers.",
+            "Can we negotiate pricing for annual commitment with 500 seats?",
+        ],
+        "account": [
+            "I forgot my password and the reset email never arrives.",
+            "How do I change the email address associated with my account?",
+            "Please permanently delete all of my personal data under GDPR.",
+            "Our primary administrator left the company; how do we transfer account ownership?",
+            "Unable to log in due to lost Google Authenticator 2FA device.",
+            "Update our company profile name and billing contact email.",
+        ],
+        "other": [
+            "I just want to say the new dashboard looks amazing.",
+            "Where is your office located? Asking because my company ships hardware nearby.",
+            "Is your team hiring senior backend engineers in London?",
+            "Are you speaking at the upcoming KubeCon conference?",
+            "Just wanted to share a podcast recommendation with your design team.",
+            "Happy holidays to the team! Appreciate all the help this year.",
+        ],
+    }
+
+    records = []
+    for _ in range(n // 5):
+        for dept, pool in tickets.items():
+            records.append({
+                "state": random.choice(pool),
+                "question": instruction,
+                "options": options,
+                "label": dept,
+                "source": f"synthetic_dept_{dept}",
+            })
+    return records
+
+
 # =====================================================================
 # 2. Curated Open Datasets: Banking77 (Intent) & Emotion (Sentiment)
 # =====================================================================
@@ -363,20 +455,30 @@ def prepare_banking_choice(max_samples: int = 15000) -> List[dict]:
 
     for row in ds:
         gold = row["label_text"]
-        # Sample 3-5 distractors
+        # In 20% of cases, test explicit catch-all negative rejection ("other")
+        include_other = (random.random() < 0.20)
+        
         distractors = [l for l in all_labels if l != gold]
         k = random.randint(3, 4)
         sampled = random.sample(distractors, k)
-        pool = [gold] + sampled
-        random.shuffle(pool)
-
-        options = [{"id": l, "description": label_to_desc[l]} for l in pool]
+        
+        if include_other:
+            # Gold label is omitted from options; target is 'other'
+            pool = sampled
+            options = [{"id": l, "description": label_to_desc[l]} for l in pool]
+            options.append({"id": "other", "description": "Anything that does not match the other categories"})
+            target = "other"
+        else:
+            pool = [gold] + sampled
+            random.shuffle(pool)
+            options = [{"id": l, "description": label_to_desc[l]} for l in pool]
+            target = gold
 
         records.append({
             "state": row["text"],
             "question": "Which banking customer support category best matches this inquiry?",
             "options": options,
-            "label": gold,
+            "label": target,
             "source": "banking77",
         })
 
@@ -510,10 +612,11 @@ def build_decision_corpus(
     print(f"Synthesized {len(score_cases)} Score ordinal cases")
 
     # 3. Categorical Routing (Choice)
+    dept_cases = generate_department_triage_cases(8000)
     banking_cases = prepare_banking_choice(15000)
     emotion_cases = prepare_emotion_sentiment(10000)
-    choice_cases = banking_cases + emotion_cases
-    print(f"Curated {len(choice_cases)} Choice routing cases")
+    choice_cases = dept_cases + banking_cases + emotion_cases
+    print(f"Curated {len(choice_cases)} Choice routing cases (including department triage)")
 
     # 4. Adversarial Reasoning Core
     reasoning_cases = prepare_adversarial_core(20000)

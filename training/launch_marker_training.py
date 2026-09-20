@@ -35,35 +35,40 @@ USER_DATA_SCRIPT = """#!/bin/bash
 set -e
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-# Hard safety watchdog: 60 minutes max
-shutdown -h +60 &
+# Hard safety watchdog: 120 minutes max
+shutdown -h +120 &
 
 echo "=== [VON OPTION-MARKER TRAINING START] ==="
 export DEBIAN_FRONTEND=noninteractive
 
+apt-get update && apt-get install -y awscli curl git
+
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="/root/.local/bin:$PATH"
 
-git clone https://github.com/wfzyx/von.git /opt/von
+mkdir -p /opt/von
+aws s3 cp s3://model-weight/von-marker-src.tar.gz /tmp/von-marker-src.tar.gz
+tar -xzf /tmp/von-marker-src.tar.gz -C /opt/von
 cd /opt/von
 
-uv venv
-source .venv/bin/activate
-uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-uv pip install transformers datasets scipy sentencepiece tiktoken accelerate awscli
+/root/.local/bin/uv venv
+/opt/von/.venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+/opt/von/.venv/bin/pip install transformers datasets scipy sentencepiece tiktoken accelerate pydantic
+/opt/von/.venv/bin/pip install -e /opt/von
+export PYTHONPATH="/opt/von/src:$PYTHONPATH"
 
 # Build operational decision training corpus
-python training/prepare_decision_dataset.py --max_train 65000 --val_samples 3000 --output_dir data_decision
+/opt/von/.venv/bin/python training/prepare_decision_dataset.py --max_train 65000 --val_samples 3000 --output_dir data_decision
 
 # Detect GPUs and train with DDP
 NUM_GPUS=$(nvidia-smi -L | wc -l)
 echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training..."
 
-torchrun --nproc_per_node=$NUM_GPUS training/train_option_marker.py \
+/opt/von/.venv/bin/torchrun --nproc_per_node=$NUM_GPUS training/train_option_marker.py \
     --train_data data_decision/train.jsonl \
     --val_data data_decision/val.jsonl \
     --base_model_id wfzyx/von-1.0 \
-    --epochs 1 \
+    --epochs 3 \
     --batch_size 8 \
     --grad_accum_steps 2 \
     --s3_target s3://model-weight/von-option-marker \
