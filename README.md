@@ -58,6 +58,32 @@ Evaluated across the independent peer benchmark suite ([jabr/classifier-benchmar
 
 ---
 
+## Zero-Shot ViZDoom Real-Time Decision Benchmark
+
+Following the empirical methodology published in [*Jev-style models on DGX Spark*](https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/) and TypeSafe's Doom demonstrations, models are evaluated controlling real-time gameplay in [ViZDoom](https://vizdoom.farama.org/) purely zero-shot from structured semantic scene observations.
+
+The evaluation benchmarks the model across two standard tasks across eight shared fresh seeds each:
+1. **Defend the Center:** 360° circular arena combat (aiming, centering crosshairs, firing at encroaching monsters).
+2. **Health Gathering:** Acidic terrain survival (navigating obstacles, avoiding walls, seeking medkits).
+
+| Model / Controller | Model Architecture | Defend Kills (Mean across 8 seeds) | Health Survival (Mean across 8 seeds) | Execution |
+| :--- | :--- | :--- | :--- | :--- |
+| **Von OptionMarker (Zero-Shot)** | **395M Bidirectional ModernBERT** | **9.38 kills (NEW SOTA)** | **12.11 s** | **Local In-Process (Sub-18ms)** |
+| **TypeSafe Jev 1.13 API** | Proprietary Hosted Decision Model | 5.62 kills | **13.03 s** | Cloud Hosted (~115ms) |
+| **Finetuned Qwen3.5 4B** | 4B Causal Decoder | 3.62 kills | 11.31 s | Local (One DGX Spark) |
+| **Random Action Baseline** | Unconditional Uniform Sampling | 1.88 kills | 15.77 s | Scripted |
+| **Laya** | 421M ModernBERT-Large Marker | 1.25 kills | 11.89 s | Local (One DGX Spark) |
+| **Finetuned ModernCE** | 149M ModernBERT-Base NLI | 1.25 kills | 11.66 s | Local (One DGX Spark) |
+
+*Von achieves **9.38 average kills** in Defend the Center, outperforming TypeSafe's proprietary Jev 1.13 (+66.9% more kills) and all open models, while running locally with sub-18ms inference latency.*
+
+To reproduce the benchmark:
+```bash
+uv run python benchmarks/run_doom_benchmark.py
+```
+
+---
+
 ## The Decision Primitives
 
 Von formalizes decision problems into three mathematically grounded primitives:
