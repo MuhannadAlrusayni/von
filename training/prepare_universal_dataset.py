@@ -22,15 +22,29 @@ from datasets import load_dataset
 # 1. Compliance & Regulatory Cluster (Noul & Policy Verification)
 # =====================================================================
 
+# Common bare polarity phrasings for zero-shot Noul tasks
+BARE_NOUL_PHRASINGS = [
+    [{"id": "yes", "description": "Yes, condition holds true."}, {"id": "no", "description": "No, condition is false."}],
+    [{"id": "yes", "description": "Yes"}, {"id": "no", "description": "No"}],
+    [{"id": "yes", "description": "True"}, {"id": "no", "description": "False"}],
+    [{"id": "yes", "description": "Condition is satisfied"}, {"id": "no", "description": "Condition is not satisfied"}],
+]
+
+
 def generate_hazmat_cases(n: int = 4000) -> List[dict]:
     instruction = "Is this shipment restricted as dangerous goods / hazardous materials for air transport?"
     criteria = {
         "true": "Contains Class 1-9 dangerous goods (lithium batteries >100Wh, flammable liquids, aerosols, compressed gases, or toxic substances)",
         "false": "Standard non-hazardous consumer merchandise safe for regular cargo or passenger aircraft",
     }
-    options = [
+    descriptive_options = [
         {"id": "yes", "description": criteria["true"]},
         {"id": "no", "description": criteria["false"]},
+    ]
+    bare_phrasings = [
+        [{"id": "yes", "description": "Yes, condition holds true."}, {"id": "no", "description": "No, condition is false."}],
+        [{"id": "yes", "description": "Yes"}, {"id": "no", "description": "No"}],
+        [{"id": "yes", "description": "True"}, {"id": "no", "description": "False"}],
     ]
 
     hazmat_pool = [
@@ -56,17 +70,19 @@ def generate_hazmat_cases(n: int = 4000) -> List[dict]:
 
     records = []
     for _ in range(n // 2):
+        # 50% descriptive criteria, 50% bare zero-shot polarity markers
+        opts = descriptive_options if random.random() < 0.5 else random.choice(bare_phrasings)
         records.append({
             "state": random.choice(hazmat_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "yes",
             "source": "hazmat_pos",
         })
         records.append({
             "state": random.choice(safe_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "no",
             "source": "hazmat_neg",
         })
@@ -79,7 +95,7 @@ def generate_dietary_vegan_cases(n: int = 4000) -> List[dict]:
         "true": "Contains exclusively plant-based ingredients; free from all meat, fish, dairy, eggs, honey, and animal derivatives",
         "false": "Contains animal products or animal by-products (dairy, whey, eggs, honey, gelatin, or lard)",
     }
-    options = [
+    descriptive_options = [
         {"id": "yes", "description": criteria["true"]},
         {"id": "no", "description": criteria["false"]},
     ]
@@ -117,17 +133,18 @@ def generate_dietary_vegan_cases(n: int = 4000) -> List[dict]:
 
     records = []
     for _ in range(n // 2):
+        opts = descriptive_options if random.random() < 0.5 else random.choice(BARE_NOUL_PHRASINGS)
         records.append({
             "state": random.choice(vegan_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "yes",
             "source": "vegan_pos",
         })
         records.append({
             "state": random.choice(non_vegan_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "no",
             "source": "vegan_neg",
         })
@@ -140,7 +157,7 @@ def generate_fair_housing_cases(n: int = 4000) -> List[dict]:
         "true": "Expresses preference or discrimination based on race, religion, sex, disability, familial status (kids), or national origin",
         "false": "Compliant listing setting legitimate financial, occupancy, or property requirements (credit score, no smoking)",
     }
-    options = [
+    descriptive_options = [
         {"id": "yes", "description": criteria["true"]},
         {"id": "no", "description": criteria["false"]},
     ]
@@ -166,17 +183,18 @@ def generate_fair_housing_cases(n: int = 4000) -> List[dict]:
 
     records = []
     for _ in range(n // 2):
+        opts = descriptive_options if random.random() < 0.5 else random.choice(BARE_NOUL_PHRASINGS)
         records.append({
             "state": random.choice(violation_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "yes",
             "source": "fair_housing_pos",
         })
         records.append({
             "state": random.choice(compliant_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "no",
             "source": "fair_housing_neg",
         })
@@ -189,7 +207,7 @@ def generate_travel_policy_cases(n: int = 4000) -> List[dict]:
         "true": "Violates travel policy rules (first/business class flight under 6 hours, luxury hotel exceeding cap, personal leisure)",
         "false": "Compliant business travel expense within standard economy limits, approved per diem, and authorized vendors",
     }
-    options = [
+    descriptive_options = [
         {"id": "yes", "description": criteria["true"]},
         {"id": "no", "description": criteria["false"]},
     ]
@@ -211,17 +229,18 @@ def generate_travel_policy_cases(n: int = 4000) -> List[dict]:
 
     records = []
     for _ in range(n // 2):
+        opts = descriptive_options if random.random() < 0.5 else random.choice(BARE_NOUL_PHRASINGS)
         records.append({
             "state": random.choice(violation_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "yes",
             "source": "travel_policy_pos",
         })
         records.append({
             "state": random.choice(compliant_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "no",
             "source": "travel_policy_neg",
         })
@@ -621,7 +640,7 @@ def generate_ad_policy_cases(n: int = 5000) -> List[dict]:
         "true": "Contains prohibited claims: guaranteed investment returns, miracle weight loss, deceptive before/afters, or counterfeit goods",
         "false": "Compliant advertising promoting legitimate commercial products with transparent terms and reasonable claims",
     }
-    options = [
+    descriptive_options = [
         {"id": "yes", "description": criteria["true"]},
         {"id": "no", "description": criteria["false"]},
     ]
@@ -643,17 +662,18 @@ def generate_ad_policy_cases(n: int = 5000) -> List[dict]:
 
     records = []
     for _ in range(n // 2):
+        opts = descriptive_options if random.random() < 0.5 else random.choice(BARE_NOUL_PHRASINGS)
         records.append({
             "state": random.choice(violation_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "yes",
             "source": "ad_policy_pos",
         })
         records.append({
             "state": random.choice(compliant_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "no",
             "source": "ad_policy_neg",
         })
@@ -666,7 +686,7 @@ def generate_allergen_cases(n: int = 5000) -> List[dict]:
         "true": "Contains one or more major common allergens: peanuts, nuts, dairy, eggs, fish, crustaceans, soy, or wheat",
         "false": "Free from major common allergens: verified allergen-free simple fruits, vegetables, seeds, or plain grains",
     }
-    options = [
+    descriptive_options = [
         {"id": "yes", "description": criteria["true"]},
         {"id": "no", "description": criteria["false"]},
     ]
@@ -691,17 +711,18 @@ def generate_allergen_cases(n: int = 5000) -> List[dict]:
 
     records = []
     for _ in range(n // 2):
+        opts = descriptive_options if random.random() < 0.5 else random.choice(BARE_NOUL_PHRASINGS)
         records.append({
             "state": random.choice(allergen_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "yes",
             "source": "allergen_pos",
         })
         records.append({
             "state": random.choice(safe_pool),
             "question": instruction,
-            "options": options,
+            "options": opts,
             "label": "no",
             "source": "allergen_neg",
         })

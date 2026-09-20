@@ -530,9 +530,75 @@ def prepare_emotion_sentiment(max_samples: int = 10000) -> List[dict]:
 # =====================================================================
 
 def prepare_adversarial_core(max_samples: int = 20000) -> List[dict]:
-    """Loads balanced adversarial multi-hop reasoning pairs from ANLI and WANLI."""
+    """Loads balanced adversarial multi-hop reasoning pairs from ANLI and WANLI.
+    
+    Converts 50% of the pairs into native binary Noul verification decisions
+    with bare polarity options ('Yes'/'No', 'True'/'False') so the Option-Marker head
+    learns zero-shot calibration without criteria descriptions.
+    """
     print("Fetching ANLI & WANLI for reasoning core...")
     records = []
+
+    # Polarity phrasing variants for native Noul triples
+    noul_phrasings = [
+        ("Yes, condition holds true.", "No, condition is false."),
+        ("Yes", "No"),
+        ("True", "False"),
+        ("Condition is satisfied", "Condition is not satisfied"),
+    ]
+
+    def make_entry(p: str, h: str, label_str: str, source_id: str) -> dict:
+        # Half as 3-class Choice, half as binary Noul
+        if random.random() < 0.5:
+            # 3-class Choice
+            return {
+                "state": p,
+                "question": f"Is the following claim supported, contradicted, or is evidence insufficient: '{h}'?",
+                "options": [
+                    {"id": "supported", "description": f"The evidence establishes that: {h}."},
+                    {"id": "contradicted", "description": f"The evidence contradicts that: {h}."},
+                    {"id": "insufficient", "description": f"The evidence is insufficient to verify: {h}."},
+                ],
+                "label": label_str,
+                "source": source_id,
+            }
+        else:
+            # Binary Noul: if supported -> True; if contradicted -> False; if neutral -> skip or balance
+            pos_desc, neg_desc = random.choice(noul_phrasings)
+            if label_str == "supported":
+                return {
+                    "state": p,
+                    "question": f"Does the premise support the statement: '{h}'?",
+                    "options": [
+                        {"id": "true", "description": pos_desc},
+                        {"id": "false", "description": neg_desc},
+                    ],
+                    "label": "true",
+                    "source": f"{source_id}_noul_pos",
+                }
+            elif label_str == "contradicted":
+                return {
+                    "state": p,
+                    "question": f"Does the premise support the statement: '{h}'?",
+                    "options": [
+                        {"id": "true", "description": pos_desc},
+                        {"id": "false", "description": neg_desc},
+                    ],
+                    "label": "false",
+                    "source": f"{source_id}_noul_neg",
+                }
+            else:
+                # Insufficient evidence -> claim does not hold
+                return {
+                    "state": p,
+                    "question": f"Can the statement be verified from the premise: '{h}'?",
+                    "options": [
+                        {"id": "true", "description": pos_desc},
+                        {"id": "false", "description": neg_desc},
+                    ],
+                    "label": "false",
+                    "source": f"{source_id}_noul_neutral",
+                }
     
     # ANLI
     for r in ["train_r1", "train_r2", "train_r3"]:
@@ -543,17 +609,9 @@ def prepare_adversarial_core(max_samples: int = 20000) -> List[dict]:
             h = (row.get("hypothesis") or "").strip()
             lbl = row.get("label")
             if p and h and lbl in label_map:
-                records.append({
-                    "state": p,
-                    "question": f"Is the following claim supported, contradicted, or is evidence insufficient: '{h}'?",
-                    "options": [
-                        {"id": "supported", "description": f"The evidence establishes that: {h}."},
-                        {"id": "contradicted", "description": f"The evidence contradicts that: {h}."},
-                        {"id": "insufficient", "description": f"The evidence is insufficient to verify: {h}."},
-                    ],
-                    "label": label_map[lbl],
-                    "source": f"anli_{r}",
-                })
+                entry = make_entry(p, h, label_map[lbl], f"anli_{r}")
+                if entry:
+                    records.append(entry)
 
     # WANLI
     wanli_train = load_dataset("alisawuffles/WANLI", split="train")
@@ -563,21 +621,13 @@ def prepare_adversarial_core(max_samples: int = 20000) -> List[dict]:
         h = (row.get("hypothesis") or "").strip()
         g = (row.get("gold") or "").lower().strip()
         if p and h and g in gold_to_id:
-            records.append({
-                "state": p,
-                "question": f"Is the following claim supported, contradicted, or is evidence insufficient: '{h}'?",
-                "options": [
-                    {"id": "supported", "description": f"The evidence establishes that: {h}."},
-                    {"id": "contradicted", "description": f"The evidence contradicts that: {h}."},
-                    {"id": "insufficient", "description": f"The evidence is insufficient to verify: {h}."},
-                ],
-                "label": gold_to_id[g],
-                "source": "wanli",
-            })
+            entry = make_entry(p, h, gold_to_id[g], "wanli")
+            if entry:
+                records.append(entry)
 
     random.shuffle(records)
     selected = records[:max_samples]
-    print(f"  -> Retained {len(selected)} Adversarial Core reasoning pairs")
+    print(f"  -> Retained {len(selected)} Adversarial Core reasoning pairs (balanced Choice + Noul)")
     return selected
 
 
