@@ -66,9 +66,16 @@ class OptionMarkerBackend(BaseBackend):
                     state_dict = torch.load(pt_path, map_location=self.device, weights_only=True)
                     model.load_state_dict(state_dict)
                 else:
-                    # Fallback to base model
-                    base_id = "checkpoints/von-modernbert-rlcd" if os.path.exists("checkpoints/von-modernbert-rlcd") else "wfzyx/von-1.0"
-                    model = OptionMarkerModel(base_model_id=base_id)
+                    # Download from Hugging Face Hub
+                    try:
+                        from huggingface_hub import hf_hub_download
+                        cached_pt = hf_hub_download(repo_id="wfzyx/von-1.0", filename="option_marker.pt")
+                        model = OptionMarkerModel(base_model_id="wfzyx/von-1.0")
+                        state_dict = torch.load(cached_pt, map_location=self.device, weights_only=True)
+                        model.load_state_dict(state_dict)
+                    except Exception:
+                        base_id = "checkpoints/von-modernbert-rlcd" if os.path.exists("checkpoints/von-modernbert-rlcd") else "wfzyx/von-1.0"
+                        model = OptionMarkerModel(base_model_id=base_id)
 
                 model = model.to(self.device).eval()
 
@@ -275,9 +282,8 @@ class OptionMarkerBackend(BaseBackend):
         q_tokens = max(1, total_q_chars // 4)
 
         usage = Usage(
-            state_tokens=state_tokens,
-            question_tokens=q_tokens,
-            total_tokens=state_tokens + q_tokens,
+            input_tokens=state_tokens + q_tokens,
+            output_tokens=len(answers),
         )
 
         return SystemOneResponse(

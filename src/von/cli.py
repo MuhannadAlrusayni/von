@@ -23,7 +23,7 @@ def main():
 @main.command()
 @click.option("--host", default="0.0.0.0", help="Host interface to bind on.")
 @click.option("--port", default=8000, type=int, help="Port to listen on.")
-@click.option("--backend", default="modernbert", type=click.Choice(["modernbert", "laya", "needle", "berta-v3"]), help="Decision backend to load.")
+@click.option("--backend", default="option-marker", type=click.Choice(["option-marker", "modernbert", "von-1.0", "marker", "laya", "needle", "berta-v3"]), help="Decision backend to load.")
 @click.option("--device", default="auto", help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'dml', 'cpu'.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
 def serve(host: str, port: int, backend: str, device: str, reload: bool):

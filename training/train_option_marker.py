@@ -278,6 +278,20 @@ def train(
                 model.encoder.save_pretrained(output_dir)
                 tokenizer.save_pretrained(output_dir)
 
+                calib_config = {
+                    "model_type": "option_marker",
+                    "base_model": base_model_id,
+                    "best_val_accuracy": round(best_val_acc, 4),
+                    "epoch": epoch,
+                    "timestamp": time.time(),
+                }
+                with open(os.path.join(output_dir, "marker_calibration.json"), "w") as f:
+                    json.dump(calib_config, f, indent=2)
+
+                if s3_target:
+                    print(f"Syncing Epoch {epoch} checkpoint to S3: {s3_target} ...")
+                    os.system(f"aws s3 cp --recursive {output_dir}/ {s3_target}/")
+
     if is_main:
         calib_config = {
             "model_type": "option_marker",

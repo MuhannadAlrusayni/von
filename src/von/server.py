@@ -44,15 +44,20 @@ def health_check():
 
 @app.get("/v1/models")
 def list_models():
+    model_entries = [
+        {"name": "von-latest", "description": "Flagship Von System One Decision Model", "release_date": "2026-09-19"},
+        {"name": "von-1.0.0", "description": "Von-1.0 Stable Release", "release_date": "2026-09-19"},
+        {"name": "von-option-marker", "description": "Von Option-Marker Single-Pass Joint Attention Model", "release_date": "2026-09-20"},
+        {"name": "jev-latest", "description": "TypeSafe Jev Compatibility Alias", "release_date": "2026-09-19"},
+    ]
+    data_entries = [
+        {"id": m["name"], "object": "model", "owned_by": "von"}
+        for m in model_entries
+    ]
     return {
+        "models": model_entries,
         "object": "list",
-        "data": [
-            {"id": "von-latest", "object": "model", "owned_by": "von"},
-            {"id": "von-1.0.0", "object": "model", "owned_by": "von"},
-            {"id": "von-preview", "object": "model", "owned_by": "von"},
-            {"id": "jev-latest", "object": "model", "owned_by": "typesafe-compatibility"},
-            {"id": "jev-1.13.0", "object": "model", "owned_by": "typesafe-compatibility"},
-        ],
+        "data": data_entries,
     }
 
 
