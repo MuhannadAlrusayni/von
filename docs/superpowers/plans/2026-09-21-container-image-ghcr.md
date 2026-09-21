@@ -6,7 +6,7 @@
 
 **Architecture:** One parameterized multi-stage `Dockerfile` produces both the CPU and the CUDA image. A `TORCH_BACKEND` build argument selects between the PyTorch CPU wheel and the CUDA wheel pinned in `uv.lock`; everything else in the recipe is shared. Only the **CPU** variant is published — it is built by a single-job GitHub Actions workflow and pushed to GHCR under two tags. GPU users build the CUDA variant locally from the same file. Model weights (~3.2 GB) are never baked in; they are fetched from the Hugging Face Hub into a mounted `HF_HOME` volume on first use.
 
-**Tech Stack:** Docker (multi-stage, `python:3.12-slim-bookworm`), `uv` **0.12.17** (pinned via the official image), `uv.lock`, Docker Buildx (cache mounts), GitHub Actions (`docker/build-push-action@v6`), GHCR.
+**Tech Stack:** Docker (multi-stage, `python:3.12-slim-bookworm`), `uv` **0.12.17** (pinned via the official image), `uv.lock`, Docker Buildx (cache mounts), GitHub Actions (`docker/build-push-action@v7`), GHCR.
 
 **Spec:** `docs/superpowers/specs/2026-09-21-container-image-ghcr-design.md`
 
@@ -335,7 +335,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Compute image tags
         id: tags
@@ -352,17 +352,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
