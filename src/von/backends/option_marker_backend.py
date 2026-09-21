@@ -107,7 +107,7 @@ class OptionMarkerBackend(BaseBackend):
         q_id: str,
         state_text: str,
         q: Choice,
-        temperature: float = 1.0,
+        temperature: Optional[float] = None,
         **kwargs,
     ) -> ChoiceAnswer:
         options = list(q.criteria.keys())
@@ -116,6 +116,7 @@ class OptionMarkerBackend(BaseBackend):
 
         model = self._get_model()
         tok = model.tokenizer
+        eff_temp = self._default_temp if temperature is None else temperature
 
         descriptions = []
         for opt in options:
@@ -135,7 +136,7 @@ class OptionMarkerBackend(BaseBackend):
                 mask_positions=[pos_list],
             )
             logits = batch_logits[0]  # (K,)
-            scaled = logits / max(temperature, 1e-4)
+            scaled = logits / max(eff_temp, 1e-4)
             probs = torch.softmax(scaled, dim=-1).cpu().tolist()
 
         best_idx = int(torch.argmax(logits).item())
@@ -152,11 +153,12 @@ class OptionMarkerBackend(BaseBackend):
         q_id: str,
         state_text: str,
         q: Noul,
-        temperature: float = 1.0,
+        temperature: Optional[float] = None,
         **kwargs,
     ) -> NoulAnswer:
         model = self._get_model()
         tok = model.tokenizer
+        eff_temp = self._default_temp if temperature is None else temperature
 
         crit = q.criteria or {}
         pos_desc = crit.get("true")
@@ -197,7 +199,7 @@ class OptionMarkerBackend(BaseBackend):
                 bias = null_logits[0] - null_logits[1]
                 logits = torch.stack([logits[0] - 0.7 * bias, logits[1]])
 
-            scaled = logits / max(temperature, 1e-4)
+            scaled = logits / max(eff_temp, 1e-4)
             probs = torch.softmax(scaled, dim=-1).cpu().tolist()
 
         prob_true = round(max(0.0, min(1.0, probs[0])), 4)
@@ -208,7 +210,7 @@ class OptionMarkerBackend(BaseBackend):
         q_id: str,
         state_text: str,
         q: Score,
-        temperature: float = 1.0,
+        temperature: Optional[float] = None,
         **kwargs,
     ) -> ScoreAnswer:
         levels = q.criteria
@@ -217,6 +219,7 @@ class OptionMarkerBackend(BaseBackend):
 
         model = self._get_model()
         tok = model.tokenizer
+        eff_temp = self._default_temp if temperature is None else temperature
 
         legend: Dict[str, str] = {}
         descriptions = []
@@ -247,7 +250,7 @@ class OptionMarkerBackend(BaseBackend):
                 mask_positions=[pos_list],
             )
             logits = batch_logits[0]
-            scaled = logits / max(temperature, 1e-4)
+            scaled = logits / max(eff_temp, 1e-4)
             probs = torch.softmax(scaled, dim=-1).cpu().tolist()
 
         prob_dict = {str(i): round(float(p), 4) for i, p in enumerate(probs)}
