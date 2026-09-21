@@ -348,6 +348,52 @@ curl -X POST http://localhost:8000/v1/systemone \
   }'
 ```
 
+### Container Image
+
+A prebuilt CPU image is published to GitHub Container Registry for
+`linux/amd64`:
+
+```bash
+docker run --rm -p 8000:8000 -v von-hf:/data/huggingface \
+  ghcr.io/muhannadalrusayni/von:latest
+```
+
+Model weights (~3.2 GB) are **not** baked into the image. They are downloaded
+from the Hugging Face Hub on first use into `HF_HOME` (`/data/huggingface`).
+Mount a volume there so the download survives container replacement. Skipping
+the pre-warm is fine — the first `/v1/systemone` request triggers the download,
+but that request blocks until it completes. Allow roughly 4 GB of free space.
+
+```bash
+# Optional: fetch the weights into the volume up front (~3.2 GB)
+docker run --rm -v von-hf:/data/huggingface --entrypoint python \
+  ghcr.io/muhannadalrusayni/von:latest \
+  -c "from huggingface_hub import snapshot_download; snapshot_download('wfzyx/von-1.0')"
+```
+
+#### Building the CUDA image
+
+The published image is CPU-only. For GPU inference, build the CUDA variant
+locally — the `Dockerfile` takes a `TORCH_BACKEND` build argument:
+
+```bash
+git clone https://github.com/muhannadalrusayni/von
+cd von
+docker build --build-arg TORCH_BACKEND=default -t von:cuda .
+docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface von:cuda
+```
+
+`TORCH_BACKEND=default` installs the CUDA build of PyTorch that `uv.lock` pins,
+which pulls the whole `nvidia-*` / `cuda-*` runtime stack and makes the image
+several GB larger than the ~1 GB CPU image. It needs a host NVIDIA driver and
+`--gpus all`; without `--gpus all` the server still starts, but silently falls
+back to CPU.
+
+Set `VON_API_KEY` to require `Authorization: Bearer <key>` on `/v1/systemone`.
+The default backend is `option-marker`; override it with `VON_BACKEND` or the
+`--backend` flag. Override the compute device with `VON_DEVICE` (`auto`,
+`cuda`, `rocm`, `mps`, `dml`, `cpu`).
+
 ---
 
 ## Training Data & Domain Coverage
