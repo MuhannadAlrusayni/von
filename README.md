@@ -34,12 +34,12 @@ Von is evaluated across two independent empirical suites:
 | Model / Architecture | Model Size | v2 Macro Acc (49 Tasks) | Choice Macro (20 Tasks) | ViZDoom Kills (Defend Center) | GPU Latency | Hosting / Cost |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary MoE | **96.6%** | **96.8%** | 5.62 kills | ~115 ms (API) | Cloud Only ($0.042/1M tokens) |
-| **Von OptionMarker (Current)** | **395M params (1.5 GB)** | **71.5%** | **83.4%** | **9.38 kills** | **~18 ms** | **Local / Free (Apache 2.0)** |
+| **Von OptionMarker (Current)** | **395M params (1.5 GB)** | **72.0%** | **83.0%** | **9.00 kills** | **~18 ms** | **Local / Free (Apache 2.0)** |
 | **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 68.4% | 76.2% | N/A | ~93 ms | Local / Free (Apache 2.0) |
 | **Finetuned Qwen3.5** (4B Causal) | 4B params | ~63.5% | 71.0% | 3.62 kills | ~144 ms | Local / Open Weights |
 | **Laya** (`convaiinnovations/laya`) | 421M params | 58.3% | 66.8% | 1.25 kills | ~16 ms | Local / Free (Apache 2.0) |
 
-*Von leads all open local System One models on the 49-task v2 suite at 71.5% macro (Choice routing at 83.4%, with symptom triage at 100.0%, home services at 95.7%, and city routing at 94.7%), while outperforming closed-source Jev by +66.9% on real-time ViZDoom arena combat (9.38 vs 5.62 kills).*
+*Von leads all open local System One models on the 49-task v2 suite at 72.0% macro / 72.4% micro (Choice routing at 83.0%, with symptom triage at 100.0%, home services at 95.7%, and city routing at 94.7%), while outperforming closed-source Jev by +60.1% on real-time ViZDoom arena combat (9.00 vs 5.62 kills).*
 
 ---
 
@@ -53,14 +53,14 @@ The evaluation benchmarks the model across two standard tasks across eight share
 
 | Model / Controller | Model Architecture | Defend Kills (Mean across 8 seeds) | Health Survival (Mean across 8 seeds) | Execution |
 | :--- | :--- | :--- | :--- | :--- |
-| **Von OptionMarker (Zero-Shot)** | **395M Bidirectional ModernBERT** | **9.38 kills** | **12.11 s** | **Local In-Process (Sub-18ms)** |
+| **Von OptionMarker (Zero-Shot)** | **395M Bidirectional ModernBERT** | **9.00 kills** | **12.11 s** | **Local In-Process (Sub-18ms)** |
 | **TypeSafe Jev 1.13 API** | Proprietary Hosted Decision Model | 5.62 kills | **13.03 s** | Cloud Hosted (~115ms) |
 | **Finetuned Qwen3.5 4B** | 4B Causal Decoder | 3.62 kills | 11.31 s | Local GPU |
 | **Random Action Baseline** | Unconditional Uniform Sampling | 1.88 kills | 15.77 s | Scripted |
 | **Laya** | 421M ModernBERT-Large Marker | 1.25 kills | 11.89 s | Local GPU |
 | **Finetuned ModernCE** | 149M ModernBERT-Base NLI | 1.25 kills | 11.66 s | Local GPU |
 
-*Von achieves **9.38 average kills** in Defend the Center, outperforming TypeSafe's proprietary Jev 1.13 (+66.9% more kills) and all open models, while running locally with sub-18ms inference latency.*
+*Von achieves **9.00 average kills** in Defend the Center, outperforming TypeSafe's proprietary Jev 1.13 (+60.1% more kills) and all open models, while running locally with sub-18ms inference latency.*
 
 To reproduce the benchmark:
 ```bash
