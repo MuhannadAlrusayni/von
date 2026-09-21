@@ -60,11 +60,14 @@ class OptionMarkerBackend(BaseBackend):
         with self._lock:
             if self._model is None:
                 pt_path = os.path.join(self.checkpoint_dir, "option_marker.pt")
+                loaded_from = None
+
                 if os.path.exists(pt_path):
-                    # Load trained OptionMarkerModel
+                    # Load trained OptionMarkerModel from local checkpoint
                     model = OptionMarkerModel(base_model_id=self.checkpoint_dir)
                     state_dict = torch.load(pt_path, map_location=self.device, weights_only=True)
-                    model.load_state_dict(state_dict, strict=False)
+                    model.load_state_dict(state_dict, strict=True)
+                    loaded_from = f"local file '{pt_path}'"
                 else:
                     # Download from Hugging Face Hub
                     try:
@@ -72,11 +75,16 @@ class OptionMarkerBackend(BaseBackend):
                         cached_pt = hf_hub_download(repo_id="wfzyx/von-1.0", filename="option_marker.pt")
                         model = OptionMarkerModel(base_model_id="wfzyx/von-1.0")
                         state_dict = torch.load(cached_pt, map_location=self.device, weights_only=True)
-                        model.load_state_dict(state_dict, strict=False)
-                    except Exception:
-                        base_id = "checkpoints/von-modernbert-rlcd" if os.path.exists("checkpoints/von-modernbert-rlcd") else "wfzyx/von-1.0"
-                        model = OptionMarkerModel(base_model_id=base_id)
+                        model.load_state_dict(state_dict, strict=True)
+                        loaded_from = f"Hugging Face Hub 'wfzyx/von-1.0:option_marker.pt' ({cached_pt})"
+                    except Exception as exc:
+                        raise RuntimeError(
+                            f"Failed to load Option-Marker decision weights: could not find local '{pt_path}' "
+                            f"and failed to fetch 'option_marker.pt' from Hugging Face Hub ('wfzyx/von-1.0'). "
+                            f"Refusing to run with an untrained random scoring head. Error: {exc}"
+                        ) from exc
 
+                print(f"[von-option-marker] Successfully loaded trained weights from {loaded_from}")
                 model = model.to(self.device).eval()
 
                 # Load fitted temperature if present
