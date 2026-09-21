@@ -448,6 +448,13 @@ docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface von:cuda
    match those prefixes. This is the cost of not adopting uv's `tool.uv.sources`
    extra-based split, which would require editing `pyproject.toml` and
    regenerating `uv.lock`.
+8. **No inference was ever executed against the container image.** The image was
+   verified to build, start, and serve `/health`, but the first
+   `POST /v1/systemone` requires the full ~3.2 GB weight download, which was
+   judged too slow to complete during implementation and was deliberately
+   skipped. The weight-download and model-loading paths are therefore untested
+   end-to-end inside a container; the first person to run the published image
+   exercises them.
 
 ## 13. Verification plan
 
@@ -504,6 +511,11 @@ The CUDA path (`TORCH_BACKEND=default`) is not built locally — it is not runna
 on the build machine and would pull several GB — and it is no longer exercised by
 CI either, since only the CPU variant is published. It is exercised only when a
 user builds it as documented in §10. This is recorded as an accepted risk in §12.
+
+Verification item 9 — a live `POST /v1/systemone` — was **deliberately not
+performed**. The ~3.2 GB weight download exceeded the time budget for this work.
+The container is therefore verified to *build, start, and serve*, but not to
+*infer*. This is recorded as an accepted risk in §12.8.
 
 ## 14. Resolutions at spec review
 

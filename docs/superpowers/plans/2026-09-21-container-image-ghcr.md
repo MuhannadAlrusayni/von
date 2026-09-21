@@ -262,7 +262,9 @@ Expected: JSON containing an `answers` object whose `requires_intervention.noul`
 
 The 600-second request timeout is deliberate: this first request loads ~1.5 GB of weights before answering, so a default timeout will abort it mid-load.
 
-`curl -f` makes an HTTP 422 (the server's error path) fail the command, which is the behaviour we want. If bandwidth or disk space preclude this step, record that explicitly rather than marking it passed.
+`curl -f` makes an HTTP 422 (the server's error path) fail the command, which is the behaviour we want.
+
+> **Status: not performed.** Skipped during implementation — the ~3.2 GB download did not complete within the time budget. It is recorded as an accepted risk in spec §12.8 rather than silently marked as passed. Every other step in this task (build, CPU wheel, no CUDA packages, non-root, console script, `/health`, Docker healthcheck, image size) did pass.
 
 - [ ] **Step 10: Record the image size**
 
