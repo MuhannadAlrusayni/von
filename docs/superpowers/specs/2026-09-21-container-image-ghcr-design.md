@@ -93,7 +93,7 @@ assumed.
 | D8 | CalVer tags, computed once per run in UTC | Per the requested `YYYY.MM.DD.HH.MM` scheme. |
 | D9 | Publish on push to `master`, plus `workflow_dispatch` | Automatic master builds with a manual escape hatch. |
 | D10 | Package visibility set to public best-effort | User selection; the exact permission available to `GITHUB_TOKEN` is unverified (see §11). |
-| D11 | Add a short "Container image" section to `README.md` | An unpublished usage contract is not useful; the image is unusable to a reader without the volume/env/GPU invocation. Flagged for review — strike this if unwanted. |
+| D11 | Add a short "Container image" section to `README.md` | An unpublished usage contract is not useful; the image is unusable to a reader without the volume/env/GPU invocation. Confirmed at spec review. |
 
 ## 5. Files
 
@@ -497,10 +497,14 @@ runnable on the build machine and building it would pull ~8 GB. Its build path
 differs from the CPU path only by the absence of the filter step, and is
 exercised by CI.
 
-## 14. Open items for spec review
+## 14. Resolutions at spec review
 
-1. **The CUDA variant has no bare `:latest`** — it publishes `:cuda-latest`, and
-   no `:cuda`. Confirm that a consumer reaching for `:latest` should receive the
-   CPU build.
-2. **README section (D11)** — confirm a short "Container image" section should be
-   added, or strike it to keep the change to three files.
+Both items raised for review are closed; nothing is outstanding.
+
+1. **Tag scheme.** The word "edge" was removed from the scheme entirely — both
+   the CalVer suffix and the floating pointer tags. The CUDA variant publishes
+   `:cuda-latest` and no bare `:cuda`, and `:latest` resolves to the CPU build.
+   The resulting tags are listed in §9, and the generation logic was executed
+   locally to confirm the output (verification item 13).
+2. **README section (D11).** Confirmed: a short "Container image" section will be
+   added to `README.md`.
