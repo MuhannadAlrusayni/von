@@ -27,54 +27,23 @@ Autoregressive large language models (LLMs) decode token-by-token to perform cla
 
 ## Empirical Benchmark
 
-### 1. Peer Classifier Benchmark (v1 Suite · 8 Tasks, 78 Cases)
-Evaluated across the original independent peer benchmark suite ([jabr/classifier-benchmark](https://github.com/jabr/classifier-benchmark)) comprising 8 core operational tasks across all three System One decision primitives:
+Von is evaluated across two independent empirical suites:
+1. **Multi-Domain Language & Logic Generalization:** The 49-task, 869-case [jabr v2 benchmark](https://github.com/jabr/classifier-benchmark/blob/main/results/v1v2-summary.md) testing out-of-domain decision making (compliance, triage, legal, DevOps, linguistics, safety).
+2. **Real-Time Interactive Robotics/Gaming:** The standard 8-seed [ViZDoom evaluation protocol](https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/) testing sub-20ms real-time control (aiming, centering, firing) purely zero-shot from structured scene text.
 
-| Model | Model Size | Macro Acc | Micro Acc | MPS / GPU Latency | CPU Latency | Hosting / Pricing |
+| Model / Architecture | Model Size | v2 Macro Acc (49 Tasks) | Choice Macro (20 Tasks) | ViZDoom Kills (Defend Center) | GPU Latency | Hosting / Cost |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Von-1.0** (Current) | **395M params (1.5 GB)** | **93.5%** | **93.6%** | **~18 ms** | **~480 ms** | **Local / Free (Apache 2.0)** |
-| **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 78.5% | 79.5% | ~93 ms | ~500 ms | Local / Free (Apache 2.0) |
-| **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary | 97.2% | 97.4% | ~302 ms (API) | N/A (Cloud Only) | $0.042 / 1M tokens |
+| **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary MoE | **96.6%** | **96.8%** | 5.62 kills | ~115 ms (API) | Cloud Only ($0.042/1M tokens) |
+| **Von OptionMarker (Current)** | **395M params (1.5 GB)** | **71.5%** | **83.4%** | **9.38 kills** | **~18 ms** | **Local / Free (Apache 2.0)** |
+| **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 68.4% | 76.2% | N/A | ~93 ms | Local / Free (Apache 2.0) |
+| **Finetuned Qwen3.5** (4B Causal) | 4B params | ~63.5% | 71.0% | 3.62 kills | ~144 ms | Local (One DGX Spark) |
+| **Laya** (`convaiinnovations/laya`) | 421M params | 58.3% | 66.8% | 1.25 kills | ~16 ms | Local / Free (Apache 2.0) |
 
-*Measured on Apple MPS and CPU across 78 test cases. Single-pass Option-Marker joint attention with 95.70% held-out validation accuracy.*
-
-<p align="center">
-  <img src="assets/benchmark_comparison.png" alt="Von-1.0 vs GLiNER2 vs TypeSafe Jev Task Breakdown" width="850">
-</p>
-
-#### Task Breakdown (v1 Suite)
-
-| Decision Task | Primitive Type | Von-1.0 | GLiNER2 | TypeSafe Jev | Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **support_department** | Choice (5-way) | **1.000** | **0.933** | 1.000 | **Perfect 15/15 queue routing** |
-| **email_intent** | Choice (5-way) | **1.000** | 0.900 | **1.000** | **Perfect 10/10 intent triage** |
-| **secret_leak** | Noul (Binary) | **1.000** | 0.500 | **1.000** | **Perfect 8/8 credential & passphrase detection** |
-| **urgency** | Noul (Binary) | **1.000** | **1.000** | **1.000** | **Perfect 8/8 outage & time gating** |
-| **refund_eligible** | Noul (Binary) | **0.700** | 0.500 | **1.000** | Temporal policy verification (7/10) |
-| **frustration_level** | Score (3-level) | **0.889** | **1.000** | **1.000** | Customer emotion calibration (8/9) |
-| **incident_severity** | Score (5-level) | **0.889** | 0.556 | 0.778 | **Beats Jev (0.778) & GLiNER2 (0.556)** |
-| **review_sentiment** | Score (5-level) | **1.000** | 0.889 | **1.000** | **Perfect 9/9 5-star sentiment rating** |
-| **Macro Average** | Across 8 tasks | **0.935** | 0.785 | **0.972** | **Von beats GLiNER2 (+15.0%)** |
-| **Micro Average** | Across 78 cases | **0.936** | 0.795 | **0.974** | **Von beats GLiNER2 (+14.1%)** |
+*Von leads all open local System One models on the 49-task v2 suite at 71.5% macro (Choice routing at 83.4%, with symptom triage at 100.0%, home services at 95.7%, and city routing at 94.7%), while outperforming closed-source Jev by +66.9% on real-time ViZDoom arena combat (9.38 vs 5.62 kills).*
 
 ---
 
-### 2. Multi-Domain Generalization Benchmark (v2 Suite · 49 Tasks, 869 Cases)
-Evaluated across jabr's expanded [v2 benchmark suite](https://github.com/jabr/classifier-benchmark/blob/main/results/v1v2-summary.md) testing out-of-domain generalization across 49 novel tasks (compliance, medical triage, legal, DevOps, linguistics, safety):
-
-| Model / Architecture | Model Size | v2 Macro Acc | v2 Micro Acc | Choice Macro (20 tasks) | Noul Macro (18 tasks) | Score Macro (11 tasks) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary | **96.6%** | **96.4%** | **96.8%** | **96.2%** | **96.4%** |
-| **Von OptionMarker (Calibrated)** | **395M params** | **71.5%** | **71.8%** | **83.4%** | **62.5%** | **64.8%** |
-| **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 68.4% | 68.8% | 76.2% | 61.3% | 60.1% |
-| **Von-1.0.1** (Cross-Encoder baseline) | 395M params | 66.7% | 66.6% | 74.5% | 58.1% | 57.4% |
-| **Laya** (`convaiinnovations/laya`) | 421M params | 58.3% | 58.5% | 66.8% | 52.4% | 49.2% |
-
-*Von leads all open local System One models on the 49-task v2 suite at 71.5% macro (Choice routing at 83.4%, with symptom triage at 100.0%, home services at 95.7%, and city routing at 94.7%).*
-
----
-
-## Zero-Shot ViZDoom Real-Time Decision Benchmark
+### Zero-Shot ViZDoom Real-Time Gameplay Evaluation
 
 Following the empirical methodology published in [*Jev-style models on DGX Spark*](https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/) and TypeSafe's Doom demonstrations, models are evaluated controlling real-time gameplay in [ViZDoom](https://vizdoom.farama.org/) purely zero-shot from structured semantic scene observations.
 
