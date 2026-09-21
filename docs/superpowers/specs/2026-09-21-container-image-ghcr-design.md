@@ -92,8 +92,7 @@ assumed.
 | D7 | Runtime runs as non-root uid/gid 1001 | Standard container hardening; no application code requires root. |
 | D8 | CalVer tags, computed once per run in UTC | Per the requested `YYYY.MM.DD.HH.MM` scheme. |
 | D9 | Publish on push to `master`, plus `workflow_dispatch` | Automatic master builds with a manual escape hatch. |
-| D10 | Package visibility set to public best-effort | User selection; the exact permission available to `GITHUB_TOKEN` is unverified (see §11). |
-| D11 | Add a short "Container image" section to `README.md` | An unpublished usage contract is not useful; the image is unusable to a reader without the volume/env/GPU invocation. Confirmed at spec review. |
+| D10 | Add a short "Container image" section to `README.md` | An unpublished usage contract is not useful; the image is unusable to a reader without the volume/env/GPU invocation. Confirmed at spec review. |
 
 ## 5. Files
 
@@ -103,7 +102,7 @@ assumed.
 | `.dockerignore` | New | Keeps the build context small |
 | `.github/workflows/docker-publish.yml` | New | Build matrix and GHCR publishing |
 | `docs/superpowers/specs/2026-09-21-container-image-ghcr-design.md` | New | This document |
-| `README.md` | Modified | Short "Container image" usage section (D11) |
+| `README.md` | Modified | Short "Container image" usage section (D10) |
 
 No existing source file, `pyproject.toml`, or `uv.lock` is modified.
 
@@ -336,25 +335,6 @@ jobs:
             org.opencontainers.image.description=Von System One decision model (${{ matrix.variant }})
           cache-from: type=gha,scope=${{ matrix.variant }}
           cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
-
-  visibility:
-    name: Ensure package is public
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Attempt to set package visibility to public
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          pkg="${GITHUB_REPOSITORY#*/}"
-          if gh api --method PATCH "/user/packages/container/${pkg}" \
-               -f visibility=public >/dev/null 2>&1; then
-            echo "Package ${pkg} is public."
-          else
-            echo "::warning title=Package visibility::Could not set ${pkg} to public automatically. Set it manually at https://github.com/users/${GITHUB_REPOSITORY_OWNER}/packages/container/${pkg}/settings"
-          fi
 ```
 
 ### Notes on the workflow
@@ -368,8 +348,6 @@ jobs:
   which is what grants repository-scoped permissions over the package.
 - `type=gha` caching is scoped per variant so the CPU and CUDA torch layers do
   not poison each other's cache.
-- The `visibility` job emits a `::warning::` rather than failing or passing
-  silently, consistent with the project convention that soft failures are logged.
 
 ## 9. Tag matrix
 
@@ -428,7 +406,6 @@ docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface \
 | CUDA variant without `--gpus all` | Starts, runs on CPU — silent slow path | Document explicitly |
 | CPU wheel replaced by CUDA wheel | Would silently inflate the image | Prevented by `--no-deps`; asserted in verification |
 | Two pushes within one minute | Identical CalVer tag; the later overwrites the earlier | Accepted; see §12 |
-| `GITHUB_TOKEN` cannot set visibility | Workflow warns, publish still succeeds | Manual one-click fallback documented in the warning |
 
 ## 12. Known limitations and accepted risks
 
@@ -439,19 +416,16 @@ docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface \
 2. **Minute-resolution CalVer collides.** Two merges in the same UTC minute
    produce the same tag and the second silently overwrites the first. Second-level
    precision was not requested.
-3. **Public visibility is best-effort.** The local `gh` token lacks
-   `write:packages`, and whether the in-Actions `GITHUB_TOKEN` may change package
-   visibility is unverified. The workflow attempts it and warns on failure.
-4. **The CUDA image is large.** The `nvidia-*`, `cuda-*`, and `triton` pip
+3. **The CUDA image is large.** The `nvidia-*`, `cuda-*`, and `triton` pip
    packages add several GB over the CPU image. The exact size is deliberately not
    claimed here: the CUDA variant is not built locally (§13). This is inherent to
    supporting a CUDA wheel on a shared slim base.
-5. **`:latest` points at CPU, `:cuda-latest` at CUDA.** A consumer assuming
+4. **`:latest` points at CPU, `:cuda-latest` at CUDA.** A consumer assuming
    `:latest` is GPU-capable gets the CPU build.
-6. **The healthcheck does not imply the model is loaded.** The engine loads
+5. **The healthcheck does not imply the model is loaded.** The engine loads
    weights lazily on the first `/v1/systemone` request, so `/health` returns 200
    before any inference is possible. The pre-warm command in §10 is the remedy.
-7. **`--no-hashes`** for the CPU variant, as discussed in §6.
+6. **`--no-hashes`** for the CPU variant, as discussed in §6.
 
 ## 13. Verification plan
 
@@ -488,9 +462,7 @@ machine, before the branch is offered for merge.
 **Post-merge (requires a real publish)**
 
 14. Confirm the workflow run succeeds and both packages appear in GHCR.
-15. `docker pull ghcr.io/muhannadalrusayni/von:latest` without prior authentication
-    succeeds (proves public visibility).
-16. Confirm the CUDA variant publishes `:cuda-latest` and no bare `:cuda`.
+15. Confirm the CUDA variant publishes `:cuda-latest` and no bare `:cuda`.
 
 The CUDA variant is **not** built locally during verification; it is not
 runnable on the build machine and building it would pull ~8 GB. Its build path
@@ -506,5 +478,5 @@ Both items raised for review are closed; nothing is outstanding.
    `:cuda-latest` and no bare `:cuda`, and `:latest` resolves to the CPU build.
    The resulting tags are listed in §9, and the generation logic was executed
    locally to confirm the output (verification item 13).
-2. **README section (D11).** Confirmed: a short "Container image" section will be
+2. **README section (D10).** Confirmed: a short "Container image" section will be
    added to `README.md`.
