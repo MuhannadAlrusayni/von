@@ -4,7 +4,7 @@
 
 **Goal:** Build `von` into a CPU and a CUDA container image and publish both to GitHub Container Registry automatically on every push to `master`.
 
-**Architecture:** One parameterized multi-stage `Dockerfile` produces both variants. A `TORCH_BACKEND` build argument selects between the PyTorch CPU wheel and the CUDA wheel pinned in `uv.lock`; everything else in the recipe is shared. Model weights (~3.2 GB) are never baked in — they are fetched from the Hugging Face Hub into a mounted `HF_HOME` volume on first use. A GitHub Actions workflow builds both variants as a matrix and pushes four tags to GHCR.
+**Architecture:** One parameterized multi-stage `Dockerfile` produces both the CPU and the CUDA image. A `TORCH_BACKEND` build argument selects between the PyTorch CPU wheel and the CUDA wheel pinned in `uv.lock`; everything else in the recipe is shared. Only the **CPU** variant is published — it is built by a single-job GitHub Actions workflow and pushed to GHCR under two tags. GPU users build the CUDA variant locally from the same file. Model weights (~3.2 GB) are never baked in; they are fetched from the Hugging Face Hub into a mounted `HF_HOME` volume on first use.
 
 **Tech Stack:** Docker (multi-stage, `python:3.12-slim-bookworm`), `uv` **0.12.17** (pinned via the official image), `uv.lock`, Docker Buildx (cache mounts), GitHub Actions (`docker/build-push-action@v6`), GHCR.
 
@@ -22,7 +22,7 @@
 - The runtime user is `von`, uid **1001**, gid **1001**, and never root.
 - `HF_HOME` is `/data/huggingface`; the container listens on **8000**.
 - The image name is `ghcr.io/muhannadalrusayni/von` and **must be lowercased** in the workflow. GHCR rejects uppercase and the GitHub repository is `Muhannadalrusayni/von`.
-- Published tags are exactly: `<YYYY.MM.DD.HH.MM>`, `<YYYY.MM.DD.HH.MM>-cuda`, `latest`, `cuda-latest`. There is no `edge` and no `:cuda` tag.
+- Published tags are exactly two: `<YYYY.MM.DD.HH.MM>` and `latest`. There is no `edge` tag, and no `-cuda` or `cuda-latest` tag — the CUDA variant is **not** published.
 - Timestamps are UTC, computed **once** per workflow run.
 - The workflow publishes only on `push` to `master` and on `workflow_dispatch`.
 - The words `TODO`, `TBD`, and `FIXME` must not appear in any artifact.
@@ -281,16 +281,16 @@ git commit -m "ci: add multi-stage Dockerfile with cpu and cuda variants"
 
 ---
 
-### Task 2: Publish both variants to GHCR
+### Task 2: Publish the CPU image to GHCR
 
-Adds the workflow that builds the CPU and CUDA variants and pushes four tags. The publish itself cannot run until this branch is merged to `master` (GitHub only dispatches `workflow_dispatch` for workflows present on the default branch), so verification here is static plus a local simulation of the tag-generation logic.
+Adds the workflow that builds the CPU variant and pushes two tags. The publish itself cannot run until this branch is merged to `master` (GitHub only dispatches `workflow_dispatch` for workflows present on the default branch), so verification here is static plus a local simulation of the tag-generation logic.
 
 **Files:**
 - Create: `.github/workflows/docker-publish.yml`
 
 **Interfaces:**
-- Consumes: the `TORCH_BACKEND` build arg from Task 1, with values `cpu` and `default`.
-- Produces: GHCR tags `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>`, `…<YYYY.MM.DD.HH.MM>-cuda`, `…:latest`, and `…:cuda-latest`. Task 3 documents these exact strings.
+- Consumes: the `TORCH_BACKEND` build arg from Task 1. CI passes `cpu` explicitly.
+- Produces: GHCR tags `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>` and `ghcr.io/muhannadalrusayni/von:latest`. Task 3 documents these exact strings and no others.
 
 - [ ] **Step 1: Confirm the check currently fails**
 
@@ -328,52 +328,24 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  meta:
-    name: Resolve release metadata
-    runs-on: ubuntu-latest
-    outputs:
-      calver: ${{ steps.calver.outputs.tag }}
-    steps:
-      - name: Compute CalVer tag
-        id: calver
-        run: echo "tag=$(date -u +%Y.%m.%d.%H.%M)" >> "$GITHUB_OUTPUT"
-
   build:
-    name: Build ${{ matrix.variant }}
-    needs: meta
+    name: Build and publish CPU image
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - variant: cpu
-            torch_backend: cpu
-            suffix: ""
-            extra_tags: "latest"
-          - variant: cuda
-            torch_backend: default
-            suffix: "-cuda"
-            extra_tags: "cuda-latest"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Compute image tags
         id: tags
-        env:
-          CALVER: ${{ needs.meta.outputs.calver }}
-          SUFFIX: ${{ matrix.suffix }}
-          EXTRA_TAGS: ${{ matrix.extra_tags }}
         run: |
           set -euo pipefail
           # GHCR rejects uppercase names; the repository is MuhannadAlrusayni/von.
           image="${REGISTRY}/${GITHUB_REPOSITORY,,}"
+          calver="$(date -u +%Y.%m.%d.%H.%M)"
           {
             echo "list<<TAGS_EOF"
-            echo "${image}:${CALVER}${SUFFIX}"
-            for tag in ${EXTRA_TAGS}; do
-              echo "${image}:${tag}"
-            done
+            echo "${image}:${calver}"
+            echo "${image}:latest"
             echo "TAGS_EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -393,21 +365,21 @@ jobs:
           context: .
           push: true
           build-args: |
-            TORCH_BACKEND=${{ matrix.torch_backend }}
+            TORCH_BACKEND=cpu
           tags: ${{ steps.tags.outputs.list }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.title=von
-            org.opencontainers.image.description=Von System One decision model (${{ matrix.variant }})
-          cache-from: type=gha,scope=${{ matrix.variant }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+            org.opencontainers.image.description=Von System One decision model (cpu)
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 ```
 
 Three details here are load-bearing:
 - `${GITHUB_REPOSITORY,,}` lowercases the repository name. Without it every push fails with "repository name must be lowercase".
-- CalVer is computed once in the `meta` job. Computing it inside the matrix would let the CPU and CUDA images of one release land on different minutes.
+- `TORCH_BACKEND=cpu` is passed explicitly even though it is also the `Dockerfile` default, so that changing that default cannot silently change what CI publishes.
 - `org.opencontainers.image.source` must link the package to the repository. It only takes effect when present **before** the first publish.
 
 - [ ] **Step 3: Verify the YAML parses and has the expected shape**
@@ -417,12 +389,12 @@ Run:
 python3 -c "
 import yaml
 d = yaml.safe_load(open('.github/workflows/docker-publish.yml'))
-assert set(d['jobs']) == {'meta', 'build'}, d['jobs'].keys()
+assert set(d['jobs']) == {'build'}, d['jobs'].keys()
 assert d['permissions'] == {'contents': 'read', 'packages': 'write'}, d['permissions']
-m = d['jobs']['build']['strategy']['matrix']['include']
-assert [x['variant'] for x in m] == ['cpu', 'cuda'], m
-assert [x['torch_backend'] for x in m] == ['cpu', 'default'], m
-assert [x['extra_tags'] for x in m] == ['latest', 'cuda-latest'], m
+triggers = d.get(True) or d.get('on')
+assert set(triggers) == {'push', 'workflow_dispatch'}, triggers
+args = d['jobs']['build']['steps'][-1]['with']['build-args']
+assert args.strip() == 'TORCH_BACKEND=cpu', args
 print('workflow shape OK')
 "
 ```
@@ -436,29 +408,26 @@ command -v actionlint >/dev/null && actionlint .github/workflows/docker-publish.
 ```
 Expected: either no output from `actionlint` (clean), or the explicit skip message. If `actionlint` is installed and reports errors, fix them before continuing.
 
-- [ ] **Step 5: Verify the tag-generation logic produces exactly four tags**
+- [ ] **Step 5: Verify the tag-generation logic produces exactly two tags**
 
-Run the step's shell block verbatim against representative matrix values:
+Run the step's shell block verbatim:
 
 ```bash
-REGISTRY=ghcr.io GITHUB_REPOSITORY=Muhannadalrusayni/von CALVER=2026.09.21.20.47 bash -c '
-for v in cpu cuda; do
-  case "$v" in
-    cpu)  SUFFIX="";      EXTRA_TAGS="latest" ;;
-    cuda) SUFFIX="-cuda"; EXTRA_TAGS="cuda-latest" ;;
-  esac
-  image="${REGISTRY}/${GITHUB_REPOSITORY,,}"
-  echo "${image}:${CALVER}${SUFFIX}"
-  for tag in ${EXTRA_TAGS}; do echo "${image}:${tag}"; done
-done'
+REGISTRY=ghcr.io GITHUB_REPOSITORY=Muhannadalrusayni/von bash -c '
+set -euo pipefail
+image="${REGISTRY}/${GITHUB_REPOSITORY,,}"
+calver="$(date -u +%Y.%m.%d.%H.%M)"
+echo "${image}:${calver}"
+echo "${image}:latest"
+'
 ```
-Expected, exactly:
+Expected, exactly (the timestamp is the current UTC minute):
 ```
-ghcr.io/muhannadalrusayni/von:2026.09.21.20.47
+ghcr.io/muhannadalrusayni/von:<current UTC minute>
 ghcr.io/muhannadalrusayni/von:latest
-ghcr.io/muhannadalrusayni/von:2026.09.21.20.47-cuda
-ghcr.io/muhannadalrusayni/von:cuda-latest
 ```
+
+Confirm the output contains no `-cuda` tag.
 
 - [ ] **Step 6: Verify the CalVer format and lowercasing**
 
@@ -478,7 +447,7 @@ Expected: `muhannadalrusayni/von`.
 
 ```bash
 git add .github/workflows/docker-publish.yml
-git commit -m "ci: build and publish cpu and cuda images to ghcr on master"
+git commit -m "ci: publish cpu image to ghcr on master"
 ```
 
 - [ ] **Step 8: Post-merge verification (do not skip)**
@@ -488,25 +457,25 @@ This step cannot run until the branch is merged to `master`. After merging, run:
 gh run list --workflow=docker-publish.yml --limit 1
 gh run watch
 ```
-Expected: a successful run. Then confirm both packages and all four tags exist:
+Expected: a successful run. Then confirm the package and both tags exist:
 ```bash
 gh api "/users/Muhannadalrusayni/packages/container/von/versions" --jq '.[].metadata.container.tags[]'
 ```
-Expected: the four tags from Step 5.
+Expected: exactly the two tags from Step 5, and no `-cuda` tag.
 
-If the run fails on the CUDA leg, the cause is the `default` branch of the install step in Task 1 — the CPU leg passing does not exercise it.
+This is the only place the publish path runs. The CUDA branch of the `Dockerfile` is not exercised anywhere — it is neither built here nor pushed by CI. See §12 of the spec.
 
 ---
 
 ### Task 3: Document container usage in the README
 
-Adds a `### Container Image` subsection to the existing `## Server Deployment (von serve)` section, documenting the volume contract and both variants.
+Adds a `### Container Image` subsection to the existing `## Server Deployment (von serve)` section, documenting the published CPU image, the volume contract, and how to build the CUDA variant locally.
 
 **Files:**
 - Modify: `README.md` — insert immediately after the closing fence of the `### Wire Protocol Verification` block (currently line 349) and before the `---` on line 351.
 
 **Interfaces:**
-- Consumes: the image's runtime contract from Task 1 (`HF_HOME=/data/huggingface`, port 8000, entrypoint `von serve`) and the tag names from Task 2 (`latest`, `cuda-latest`).
+- Consumes: the image's runtime contract from Task 1 (`HF_HOME=/data/huggingface`, port 8000, entrypoint `von serve`, and the `TORCH_BACKEND` build arg) and the tag name from Task 2 (`latest`).
 - Produces: nothing consumed by other tasks. This is the final task.
 
 - [ ] **Step 1: Confirm the section does not already exist**
@@ -538,35 +507,44 @@ with this text:
 
 ### Container Image
 
-Prebuilt images are published to GitHub Container Registry for `linux/amd64`:
+A prebuilt CPU image is published to GitHub Container Registry for
+`linux/amd64`:
 
-| Variant | Tag | Notes |
-|---|---|---|
-| CPU | `ghcr.io/muhannadalrusayni/von:latest` | Runs anywhere; no GPU required |
-| CUDA | `ghcr.io/muhannadalrusayni/von:cuda-latest` | Requires the host NVIDIA driver and `--gpus all` |
+```bash
+docker run --rm -p 8000:8000 -v von-hf:/data/huggingface \
+  ghcr.io/muhannadalrusayni/von:latest
+```
 
 Model weights (~3.2 GB) are **not** baked into the image. They are downloaded
 from the Hugging Face Hub on first use into `HF_HOME` (`/data/huggingface`).
-Mount a volume there so the download survives container replacement:
+Mount a volume there so the download survives container replacement. Skipping
+the pre-warm is fine — the first `/v1/systemone` request triggers the download,
+but that request blocks until it completes. Allow roughly 4 GB of free space.
 
 ```bash
-# One-time: fetch the weights into the named volume (~3.2 GB).
+# Optional: fetch the weights into the volume up front (~3.2 GB)
 docker run --rm -v von-hf:/data/huggingface --entrypoint python \
   ghcr.io/muhannadalrusayni/von:latest \
   -c "from huggingface_hub import snapshot_download; snapshot_download('wfzyx/von-1.0')"
-
-# Serve on http://localhost:8000
-docker run --rm -p 8000:8000 -v von-hf:/data/huggingface \
-  ghcr.io/muhannadalrusayni/von:latest
-
-# CUDA variant
-docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface \
-  ghcr.io/muhannadalrusayni/von:cuda-latest
 ```
 
-Skipping the pre-warm step is fine — the first `/v1/systemone` request triggers
-the download, but that request blocks until it completes. Allow roughly 4 GB of
-free space for the volume.
+#### Building the CUDA image
+
+The published image is CPU-only. For GPU inference, build the CUDA variant
+locally — the `Dockerfile` takes a `TORCH_BACKEND` build argument:
+
+```bash
+git clone https://github.com/muhannadalrusayni/von
+cd von
+docker build --build-arg TORCH_BACKEND=default -t von:cuda .
+docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface von:cuda
+```
+
+`TORCH_BACKEND=default` installs the CUDA build of PyTorch that `uv.lock` pins,
+which pulls the whole `nvidia-*` / `cuda-*` runtime stack and makes the image
+several GB larger than the ~1 GB CPU image. It needs a host NVIDIA driver and
+`--gpus all`; without `--gpus all` the server still starts, but silently falls
+back to CPU.
 
 Set `VON_API_KEY` to require `Authorization: Bearer <key>` on `/v1/systemone`.
 The default backend is `option-marker`; override it with `VON_BACKEND` or the
@@ -583,9 +561,16 @@ The default backend is `option-marker`; override it with `VON_BACKEND` or the
 Run:
 ```bash
 grep -n "Container Image" README.md
-awk '/^## Server Deployment/,/^## Training Data/' README.md | grep -nE '^#{2,3} '
+awk '/^## Server Deployment/,/^## Training Data/' README.md | grep -E '^#{2,4} '
 ```
-Expected: `Container Image` appears once; the heading order within the range is `## Server Deployment (von serve)`, `### Wire Protocol Verification`, `### Container Image`.
+Expected: `Container Image` appears once, and the headings in that range are, in order:
+
+```
+## Server Deployment (`von serve`)
+### Wire Protocol Verification
+### Container Image
+#### Building the CUDA image
+```
 
 - [ ] **Step 4: Verify the fenced code blocks are balanced**
 
@@ -606,7 +591,7 @@ Run:
 ```bash
 grep -oE 'ghcr\.io/muhannadalrusayni/von:[a-z0-9.-]+' README.md | sort -u
 ```
-Expected: `ghcr.io/muhannadalrusayni/von:cuda-latest` and `ghcr.io/muhannadalrusayni/von:latest` — both of which must also appear in `.github/workflows/docker-publish.yml` as values of `extra_tags`.
+Expected: exactly `ghcr.io/muhannadalrusayni/von:latest`. There must be **no** `cuda-latest` or `-cuda` reference anywhere, because nothing publishes such a tag — the CUDA instructions build a local `von:cuda` image instead.
 
 - [ ] **Step 6: Commit**
 
@@ -627,7 +612,10 @@ After all three tasks:
 - [ ] `docker run --rm --entrypoint python von:cpu -c "import torch; print(torch.__version__)"` prints `2.14.0+cpu`
 - [ ] `docker image inspect von:cpu --format '{{.Size}}' | numfmt --to=iec` is ~993 MB, not multi-GB
 - [ ] `Dockerfile` pins uv with `COPY --from=ghcr.io/astral-sh/uv:0.12.17`, and contains no `curl` installer and no `apt-get`
-- [ ] The workflow's `TORCH_BACKEND` values (`cpu`, `default`) match the branches in the `Dockerfile`
+- [ ] The workflow passes `TORCH_BACKEND=cpu`, which is one of the two branches in the `Dockerfile`
+- [ ] The workflow publishes exactly two tags (`<calver>`, `latest`) and no `-cuda` tag
+- [ ] `README.md` documents both the published CPU pull and the local `--build-arg TORCH_BACKEND=default` CUDA build
+- [ ] `grep -rn 'cuda-latest' README.md .github/ Dockerfile` returns nothing
 - [ ] No occurrence of `TODO`, `TBD`, or `FIXME` in any new or modified file
 
 ## Deferred to after merge

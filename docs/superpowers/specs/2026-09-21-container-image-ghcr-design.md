@@ -21,10 +21,11 @@ Container Registry (GHCR).
 
 **In scope**
 
-- A `Dockerfile` that builds the project into a runnable image.
-- Two variants: CPU and CUDA.
-- A GitHub Actions workflow that builds both variants and publishes them to
+- A `Dockerfile` that builds the project into a runnable image, with a
+  `TORCH_BACKEND` build argument selecting the CPU or the CUDA PyTorch wheel.
+- A GitHub Actions workflow that builds the **CPU** variant and publishes it to
   `ghcr.io/muhannadalrusayni/von` with CalVer tags.
+- Documenting the local CUDA build in the README.
 
 **Out of scope**
 
@@ -104,7 +105,7 @@ assumed.
 
 | # | Decision | Rationale |
 |---|---|---|
-| D1 | Ship two variants: CPU and CUDA | User selection. CUDA gives the sub-18 ms latency claimed in the README; CPU runs anywhere. |
+| D1 | Publish the CPU variant only; the CUDA variant is a documented local build | User selection. The CPU image runs anywhere and keeps CI cheap and fast. The `Dockerfile` still supports `TORCH_BACKEND=default`, so GPU users build their own image; publishing CUDA would add a multi-GB image and a much slower build to every master push. |
 | D2 | Build `linux/amd64` only | CUDA is amd64-only regardless. arm64 under QEMU adds 20–40 min per build with no meaningful speed signal. |
 | D3 | Thin images; weights downloaded at first run into a mounted volume | Avoids adding 3.2 GB of weights to *each* variant, and keeps the weight artifact out of the registry entirely. |
 | D4 | One parameterized multi-stage `Dockerfile` | Both variants share ~90% of the recipe; only the PyTorch install differs. One file means the security settings cannot drift between variants. |
@@ -299,52 +300,24 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  meta:
-    name: Resolve release metadata
-    runs-on: ubuntu-latest
-    outputs:
-      calver: ${{ steps.calver.outputs.tag }}
-    steps:
-      - name: Compute CalVer tag
-        id: calver
-        run: echo "tag=$(date -u +%Y.%m.%d.%H.%M)" >> "$GITHUB_OUTPUT"
-
   build:
-    name: Build ${{ matrix.variant }}
-    needs: meta
+    name: Build and publish CPU image
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - variant: cpu
-            torch_backend: cpu
-            suffix: ""
-            extra_tags: "latest"
-          - variant: cuda
-            torch_backend: default
-            suffix: "-cuda"
-            extra_tags: "cuda-latest"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Compute image tags
         id: tags
-        env:
-          CALVER: ${{ needs.meta.outputs.calver }}
-          SUFFIX: ${{ matrix.suffix }}
-          EXTRA_TAGS: ${{ matrix.extra_tags }}
         run: |
           set -euo pipefail
           # GHCR rejects uppercase names; the repository is MuhannadAlrusayni/von.
           image="${REGISTRY}/${GITHUB_REPOSITORY,,}"
+          calver="$(date -u +%Y.%m.%d.%H.%M)"
           {
             echo "list<<TAGS_EOF"
-            echo "${image}:${CALVER}${SUFFIX}"
-            for tag in ${EXTRA_TAGS}; do
-              echo "${image}:${tag}"
-            done
+            echo "${image}:${calver}"
+            echo "${image}:latest"
             echo "TAGS_EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -364,42 +337,42 @@ jobs:
           context: .
           push: true
           build-args: |
-            TORCH_BACKEND=${{ matrix.torch_backend }}
+            TORCH_BACKEND=cpu
           tags: ${{ steps.tags.outputs.list }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.title=von
-            org.opencontainers.image.description=Von System One decision model (${{ matrix.variant }})
-          cache-from: type=gha,scope=${{ matrix.variant }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+            org.opencontainers.image.description=Von System One decision model (cpu)
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 ```
 
 ### Notes on the workflow
 
-- **CalVer is computed once**, in the `meta` job, and passed to both matrix legs.
-  Computing it per-leg would let the CPU and CUDA images of the same release land
-  on different minutes.
 - **`${GITHUB_REPOSITORY,,}` is required**, not cosmetic — GHCR rejects uppercase
   repository names and every push would fail without it.
 - `org.opencontainers.image.source` links the GHCR package to the repository,
   which is what grants repository-scoped permissions over the package.
-- `type=gha` caching is scoped per variant so the CPU and CUDA torch layers do
-  not poison each other's cache.
+- There is a **single job and no matrix**. With one published variant there are no
+  parallel legs to keep in sync, so CalVer is computed inline instead of in a
+  separate metadata job.
+- **`TORCH_BACKEND=cpu` is passed explicitly** rather than relying on the
+  `Dockerfile`'s default, so changing that default cannot silently change what CI
+  publishes.
+- `type=gha` caching keeps the torch layer warm across runs; the cache mount in the
+  `Dockerfile` keeps the wheels themselves warm within a run.
 
 ## 9. Tag matrix
 
-| Variant | Build arg | Immutable tag | Moving tags |
-|---|---|---|---|
-| CPU | `TORCH_BACKEND=cpu` | `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>` | `:latest` |
-| CUDA | `TORCH_BACKEND=default` | `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>-cuda` | `:cuda-latest` |
+| Tag | Points at | Moves? |
+|---|---|---|
+| `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>` | The image built by that run | Never |
+| `ghcr.io/muhannadalrusayni/von:latest` | The most recent successful publish from `master` or a manual dispatch | On every publish |
 
-Timestamps are UTC, derived from build time via `date -u`. The CUDA variant
-publishes **no** bare `:cuda` tag; its floating "latest" is named `:cuda-latest`.
-
-The scheme is intentionally asymmetric: `:latest` and `:cuda-latest` are the two
-tags a consumer is most likely to guess. Confirmed at spec review — see §14.
+Timestamps are UTC, derived from build time via `date -u`. There is **no** `:cuda`
+or `:cuda-latest` tag — the CUDA image is not published.
 
 ## 10. Runtime contract
 
@@ -411,7 +384,7 @@ tags a consumer is most likely to guess. Confirmed at spec review — see §14.
 | Persistent path | `/data/huggingface` (`HF_HOME`) — mount a volume here |
 | User | `von`, uid/gid `1001` |
 | Healthcheck | `GET /health` every 30 s, 15 s start period, 3 retries |
-| GPU (CUDA variant) | Requires the host driver and `docker run --gpus all` |
+| GPU | Not in the published image — build locally with `TORCH_BACKEND=default`, then run with `--gpus all` |
 | Auth | Optional; set `VON_API_KEY` to require `Authorization: Bearer <key>` |
 | Backend override | `VON_BACKEND` |
 | Device override | `VON_DEVICE` (`auto`, `cuda`, `rocm`, `mps`, `dml`, `cpu`) |
@@ -428,9 +401,9 @@ docker run --rm -v von-hf:/data/huggingface --entrypoint python \
 docker run --rm -p 8000:8000 -v von-hf:/data/huggingface \
   ghcr.io/muhannadalrusayni/von:latest
 
-# CUDA variant
-docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface \
-  ghcr.io/muhannadalrusayni/von:cuda-latest
+# CUDA: not published — build locally, then run with the GPU exposed
+docker build --build-arg TORCH_BACKEND=default -t von:cuda .
+docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface von:cuda
 ```
 
 ## 11. Error handling and failure modes
@@ -440,8 +413,8 @@ docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface \
 | No network on first request | `OptionMarkerBackend` raises `RuntimeError`; the server maps it to HTTP 422 with the message | Pre-warm the volume; the error text names the Hub repo |
 | Weights not persisted | 3.2 GB re-downloaded per container | Mount `/data/huggingface` |
 | Insufficient disk | Download fails mid-write | Document ~4 GB free space requirement |
-| CUDA variant without a GPU | Server starts on CPU; `--device auto` falls back | Document; use the CPU variant |
-| CUDA variant without `--gpus all` | Starts, runs on CPU — silent slow path | Document explicitly |
+| Locally built CUDA image without a GPU | Server starts on CPU; `--device auto` falls back | Document; use the published CPU image |
+| Locally built CUDA image without `--gpus all` | Starts, runs on CPU — silent slow path | Document explicitly |
 | CPU wheel replaced by CUDA wheel | Would silently inflate the image | Prevented by `--no-deps`; asserted in verification |
 | Two pushes within one minute | Identical CalVer tag; the later overwrites the earlier | Accepted; see §12 |
 
@@ -454,12 +427,13 @@ docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface \
 2. **Minute-resolution CalVer collides.** Two merges in the same UTC minute
    produce the same tag and the second silently overwrites the first. Second-level
    precision was not requested.
-3. **The CUDA image is large.** The `nvidia-*`, `cuda-*`, and `triton` pip
-   packages add several GB over the CPU image. The exact size is deliberately not
-   claimed here: the CUDA variant is not built locally (§13). This is inherent to
-   supporting a CUDA wheel on a shared slim base.
-4. **`:latest` points at CPU, `:cuda-latest` at CUDA.** A consumer assuming
-   `:latest` is GPU-capable gets the CPU build.
+3. **The CUDA build path is not exercised by CI.** Nothing in the workflow
+   touches `TORCH_BACKEND=default`, and the CUDA image is not built on the
+   development machine either, because it is not runnable there and would pull
+   several GB. If a future `uv.lock` change breaks the CUDA branch of the install
+   step, CI will not report it — only a user building locally will.
+4. **Nothing verifies the published image on a GPU.** The only runtime check of
+   the GPU path is a user building locally and passing `--gpus all`.
 5. **The healthcheck does not imply the model is loaded.** The engine loads
    weights lazily on the first `/v1/systemone` request, so `/health` returns 200
    before any inference is possible. The pre-warm command in §10 is the remedy.
@@ -496,7 +470,7 @@ readiness must be polled rather than slept on.
    answers — startup is ~7.1 s, so a fixed `sleep` is a race — and confirm it
    returns `{"status":"ok",...}` and that Docker reports the container `healthy`.
 6. `docker run --rm --entrypoint python von:cpu -c "import von"` succeeds.
-7. Image size recorded for both variants.
+7. Image size recorded — measured at **993 MB**.
 8. `docker run --rm von:cpu serve --help` confirms the console script is on `PATH`.
 9. Bandwidth permitting: pre-warm the volume and issue one real
    `POST /v1/systemone` request, asserting a well-formed response.
@@ -509,30 +483,31 @@ readiness must be polled rather than slept on.
     matches `YYYY.MM.DD.HH.MM`.
 12. The lowercasing expression is evaluated for the mixed-case repository name
     `Muhannadalrusayni/von` and confirmed to produce `muhannadalrusayni/von`.
-13. The tag-generation shell block is executed locally against representative
-    matrix values to confirm both variants emit exactly the tags in §9.
+13. The tag-generation shell block is executed locally to confirm it emits
+    exactly the two tags in §9.
 
 **Post-merge (requires a real publish)**
 
-14. Confirm the workflow run succeeds and both packages appear in GHCR.
-15. Confirm the CUDA variant publishes `:cuda-latest` and no bare `:cuda`.
+14. Confirm the workflow run succeeds and the package appears in GHCR.
+15. Confirm exactly the two tags in §9 exist, and that no `-cuda` tag was
+    published.
 16. `docker run --rm ghcr.io/astral-sh/uv:0.12.17 --version` prints `uv 0.12.17`,
     proving the pinned reference in the `Dockerfile` resolves.
 
-The CUDA variant is **not** built locally during verification; it is not
-runnable on the build machine and building it would pull ~8 GB. Its build path
-differs from the CPU path only by the absence of the filter step, and is
-exercised by CI.
+**Not verified anywhere**
+
+The CUDA path (`TORCH_BACKEND=default`) is not built locally — it is not runnable
+on the build machine and would pull several GB — and it is no longer exercised by
+CI either, since only the CPU variant is published. It is exercised only when a
+user builds it as documented in §10. This is recorded as an accepted risk in §12.
 
 ## 14. Resolutions at spec review
 
-Three items were raised and closed; nothing is outstanding.
+Four items were raised and closed; nothing is outstanding.
 
-1. **Tag scheme.** The word "edge" was removed from the scheme entirely — both
-   the CalVer suffix and the floating pointer tags. The CUDA variant publishes
-   `:cuda-latest` and no bare `:cuda`, and `:latest` resolves to the CPU build.
-   The resulting tags are listed in §9, and the generation logic was executed
-   locally to confirm the output (verification item 13).
+1. **Tag scheme.** The word "edge" was removed, leaving a bare CalVer tag plus
+   `:latest`. The resulting tags are listed in §9, and the generation logic was
+   executed locally to confirm the output.
 2. **README section (D10).** Confirmed: a short "Container image" section will be
    added to `README.md`.
 3. **uv toolchain (D11).** Raised after the first review, when the official uv
@@ -540,3 +515,9 @@ Three items were raised and closed; nothing is outstanding.
    now pinned, the export uses `--locked`, and the install runs under a BuildKit
    cache mount. The design was also validated by building the CPU image rather
    than by inspection alone; the measured results are in §13.
+4. **CUDA is no longer published.** The variant was first specified as a second
+   published image, then as a manual `workflow_dispatch` option, and finally
+   settled as a CPU-only publish with the CUDA build documented for local use.
+   This removed the dispatch input and the dynamic matrix entirely, and left a
+   single-job workflow. See D1, §9, and §10; the CI-coverage consequence is
+   recorded as §12.3.
