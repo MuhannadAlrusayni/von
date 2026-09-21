@@ -114,7 +114,7 @@ assumed.
 | D7 | Runtime runs as non-root uid/gid 1001 | Standard container hardening; no application code requires root. |
 | D8 | CalVer tags, computed once per run in UTC | Per the requested `YYYY.MM.DD.HH.MM` scheme. |
 | D9 | Publish on push to `master`, plus `workflow_dispatch` | Automatic master builds with a manual escape hatch. |
-| D10 | Add a short "Container image" section to `README.md` | An unpublished usage contract is not useful; the image is unusable to a reader without the volume/env/GPU invocation. Confirmed at spec review. |
+| D10 | Add a "Container image" subsection **and** a top-level "Configuration" section to `README.md` | An unpublished usage contract is not useful; the image is unusable to a reader without the volume/GPU invocation. Configuration is documented separately from container usage because the variables apply to local runs and to both clients, not just to the image. |
 | D11 | Pin the uv toolchain by copying the binary from `ghcr.io/astral-sh/uv:0.12.17` | The `curl … \| sh` installer resolved to uv 0.7.17 on the development machine while the current release is 0.12.17, so an installer-based build pins nothing. Verified that the tag exists and that the pinned version supports every flag used here. |
 
 ## 5. Files
@@ -125,7 +125,7 @@ assumed.
 | `.dockerignore` | New | Keeps the build context small |
 | `.github/workflows/docker-publish.yml` | New | Build matrix and GHCR publishing |
 | `docs/superpowers/specs/2026-09-21-container-image-ghcr-design.md` | New | This document |
-| `README.md` | Modified | Short "Container image" usage section (D10) |
+| `README.md` | Modified | "Container image" usage subsection and a "Configuration" section (D10) |
 
 No existing source file, `pyproject.toml`, or `uv.lock` is modified. These may be
 edited if this work uncovers a defect that requires it; no such defect is known
@@ -388,6 +388,10 @@ or `:cuda-latest` tag — the CUDA image is not published.
 | Auth | Optional; set `VON_API_KEY` to require `Authorization: Bearer <key>` |
 | Backend override | `VON_BACKEND` |
 | Device override | `VON_DEVICE` (`auto`, `cuda`, `rocm`, `mps`, `dml`, `cpu`) |
+
+The README surfaces these variables in a top-level `## Configuration` section,
+split by server/image and client scope and carrying their defaults, so that the
+container usage documentation does not restate configuration.
 
 ### Usage
 
