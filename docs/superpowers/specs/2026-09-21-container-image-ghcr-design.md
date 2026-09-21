@@ -90,7 +90,7 @@ assumed.
 | D5 | CPU variant installs PyTorch via `uv export` + CUDA-package filter + `--torch-backend=cpu` | Verified against the real lock: yields `torch==2.14.0+cpu` with zero CUDA packages. Neither `pyproject.toml` nor `uv.lock` is modified. |
 | D6 | Both variants use the same `python:3.12-slim-bookworm` base | The `nvidia-*` pip packages bundle their own CUDA runtime libraries, so the CUDA image needs only the **host** driver. This is what makes one file viable. |
 | D7 | Runtime runs as non-root uid/gid 1001 | Standard container hardening; no application code requires root. |
-| D8 | CalVer tags, computed once per run in UTC | Per the requested `YYYY.MM.DD.HH.MM-edge` scheme. |
+| D8 | CalVer tags, computed once per run in UTC | Per the requested `YYYY.MM.DD.HH.MM` scheme. |
 | D9 | Publish on push to `master`, plus `workflow_dispatch` | Automatic master builds with a manual escape hatch. |
 | D10 | Package visibility set to public best-effort | User selection; the exact permission available to `GITHUB_TOKEN` is unverified (see §11). |
 | D11 | Add a short "Container image" section to `README.md` | An unpublished usage contract is not useful; the image is unusable to a reader without the volume/env/GPU invocation. Flagged for review — strike this if unwanted. |
@@ -269,7 +269,7 @@ jobs:
     steps:
       - name: Compute CalVer tag
         id: calver
-        run: echo "tag=$(date -u +%Y.%m.%d.%H.%M)-edge" >> "$GITHUB_OUTPUT"
+        run: echo "tag=$(date -u +%Y.%m.%d.%H.%M)" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.variant }}
@@ -282,11 +282,11 @@ jobs:
           - variant: cpu
             torch_backend: cpu
             suffix: ""
-            extra_tags: "edge latest"
+            extra_tags: "latest"
           - variant: cuda
             torch_backend: default
             suffix: "-cuda"
-            extra_tags: "edge-cuda cuda-latest"
+            extra_tags: "cuda-latest"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -375,8 +375,8 @@ jobs:
 
 | Variant | Build arg | Immutable tag | Moving tags |
 |---|---|---|---|
-| CPU | `TORCH_BACKEND=cpu` | `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>-edge` | `:edge`, `:latest` |
-| CUDA | `TORCH_BACKEND=default` | `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>-edge-cuda` | `:edge-cuda`, `:cuda-latest` |
+| CPU | `TORCH_BACKEND=cpu` | `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>` | `:latest` |
+| CUDA | `TORCH_BACKEND=default` | `ghcr.io/muhannadalrusayni/von:<YYYY.MM.DD.HH.MM>-cuda` | `:cuda-latest` |
 
 Timestamps are UTC, derived from build time via `date -u`. The CUDA variant
 publishes **no** bare `:cuda` tag; its floating "latest" is named `:cuda-latest`.
@@ -405,12 +405,12 @@ to guess.
 ```bash
 # One-time (or volume-persisted) weight download: ~3.2 GB
 docker run --rm -v von-hf:/data/huggingface --entrypoint python \
-  ghcr.io/muhannadalrusayni/von:edge \
+  ghcr.io/muhannadalrusayni/von:latest \
   -c "from huggingface_hub import snapshot_download; snapshot_download('wfzyx/von-1.0')"
 
 # Serve
 docker run --rm -p 8000:8000 -v von-hf:/data/huggingface \
-  ghcr.io/muhannadalrusayni/von:edge
+  ghcr.io/muhannadalrusayni/von:latest
 
 # CUDA variant
 docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface \
@@ -479,7 +479,7 @@ machine, before the branch is offered for merge.
 10. `actionlint` (or equivalent YAML/schema validation) passes on
     `docker-publish.yml`.
 11. The CalVer expression is evaluated in a shell to confirm the tag format
-    matches `YYYY.MM.DD.HH.MM-edge`.
+    matches `YYYY.MM.DD.HH.MM`.
 12. The lowercasing expression is evaluated for the mixed-case repository name
     `Muhannadalrusayni/von` and confirmed to produce `muhannadalrusayni/von`.
 13. The tag-generation shell block is executed locally against representative
@@ -488,7 +488,7 @@ machine, before the branch is offered for merge.
 **Post-merge (requires a real publish)**
 
 14. Confirm the workflow run succeeds and both packages appear in GHCR.
-15. `docker pull ghcr.io/muhannadalrusayni/von:edge` without prior authentication
+15. `docker pull ghcr.io/muhannadalrusayni/von:latest` without prior authentication
     succeeds (proves public visibility).
 16. Confirm the CUDA variant publishes `:cuda-latest` and no bare `:cuda`.
 
@@ -499,7 +499,8 @@ exercised by CI.
 
 ## 14. Open items for spec review
 
-1. **`:cuda-latest` asymmetry** — confirm the CUDA variant should publish
-   `:edge-cuda` and `:cuda-latest` but no `:cuda` and no bare `:latest`.
+1. **The CUDA variant has no bare `:latest`** — it publishes `:cuda-latest`, and
+   no `:cuda`. Confirm that a consumer reaching for `:latest` should receive the
+   CPU build.
 2. **README section (D11)** — confirm a short "Container image" section should be
    added, or strike it to keep the change to three files.
