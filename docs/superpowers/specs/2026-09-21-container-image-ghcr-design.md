@@ -3,7 +3,9 @@
 - **Date:** 2026-09-21
 - **Branch:** `ci/container-image-ghcr`
 - **Repository:** `muhannadalrusayni/von` (fork of `wfzyx/von`)
-- **Status:** Approved design; implementation plan not yet written
+- **Status:** Approved. Implementation plan written at
+  `docs/superpowers/plans/2026-09-21-container-image-ghcr.md`; the CPU image has
+  been built and verified (§13) but no plan task has been executed.
 
 ## 1. Problem
 
@@ -26,7 +28,9 @@ Container Registry (GHCR).
 
 **Out of scope**
 
-- Any change to `pyproject.toml`, `uv.lock`, or application source.
+- Refactoring `pyproject.toml`, `uv.lock`, or application source for reasons
+  unrelated to this work. Editing them *is* permitted when required to fix a
+  defect this work uncovers.
 - Baked-in model weights.
 - Multi-architecture builds (arm64).
 - Kubernetes manifests, Helm charts, or Compose files.
@@ -70,6 +74,23 @@ assumed.
   distributions in total.
 - A plain `uv sync` therefore produces a CUDA image even for a "CPU" variant.
 
+### Toolchain
+
+- `--torch-backend` is documented as a `uv pip`-only feature: "At present,
+  `--torch-backend` is only available in the `uv pip` interface." `uv sync`
+  therefore cannot express the CPU selection, which is what forces the
+  `uv export` + `uv pip` strategy in §6 rather than a stylistic preference.
+- The official Docker guidance recommends copying the uv binary from
+  `ghcr.io/astral-sh/uv:<pinned>` and warns against an unpinned install. The
+  `curl … | sh` installer resolved to **uv 0.7.17** on the development machine
+  while the current release is **0.12.17** — five minor versions apart.
+- Verified present in `ghcr.io/astral-sh/uv:0.12.17`: `uv export --locked` and
+  `--frozen`, `uv pip install --torch-backend`, and `uv pip install --python`.
+  The image is `x86_64-unknown-linux-musl`; the binary is statically linked and
+  runs on this glibc base, which is the pattern the official guide documents.
+- `python:3.12-slim-bookworm` already contains `ca-certificates`, so the
+  official `COPY --from=ghcr.io/astral-sh/uv:...` pattern does not break TLS.
+
 ### CI and registry
 
 - Existing workflows: `test.yml`, `publish-hf-weights.yml`, `sync-hf-card.yml`.
@@ -93,6 +114,7 @@ assumed.
 | D8 | CalVer tags, computed once per run in UTC | Per the requested `YYYY.MM.DD.HH.MM` scheme. |
 | D9 | Publish on push to `master`, plus `workflow_dispatch` | Automatic master builds with a manual escape hatch. |
 | D10 | Add a short "Container image" section to `README.md` | An unpublished usage contract is not useful; the image is unusable to a reader without the volume/env/GPU invocation. Confirmed at spec review. |
+| D11 | Pin the uv toolchain by copying the binary from `ghcr.io/astral-sh/uv:0.12.17` | The `curl … \| sh` installer resolved to uv 0.7.17 on the development machine while the current release is 0.12.17, so an installer-based build pins nothing. Verified that the tag exists and that the pinned version supports every flag used here. |
 
 ## 5. Files
 
@@ -104,7 +126,9 @@ assumed.
 | `docs/superpowers/specs/2026-09-21-container-image-ghcr-design.md` | New | This document |
 | `README.md` | Modified | Short "Container image" usage section (D10) |
 
-No existing source file, `pyproject.toml`, or `uv.lock` is modified.
+No existing source file, `pyproject.toml`, or `uv.lock` is modified. These may be
+edited if this work uncovers a defect that requires it; no such defect is known
+at the time of writing.
 
 ## 6. Dockerfile
 
@@ -128,29 +152,32 @@ FROM python:${PYTHON_VERSION}-slim-bookworm AS builder
 ARG PYTHON_VERSION
 ARG TORCH_BACKEND=cpu
 
+# Copy the uv binary from the official distroless image rather than running the
+# curl installer: this pins the toolchain version and removes the apt layer.
+# The binary is statically linked, so it runs on this glibc base.
+COPY --from=ghcr.io/astral-sh/uv:0.12.17 /uv /uvx /bin/
+
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never
-
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl \
- && rm -rf /var/lib/apt/lists/* \
- && curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
 WORKDIR /build
 
 # Dependency layer first, so later source edits do not invalidate the torch install.
 COPY pyproject.toml uv.lock ./
-RUN uv export --frozen --no-dev --no-emit-project --no-hashes \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv export --locked --no-dev --no-emit-project --no-hashes \
       --format requirements-txt -o /tmp/requirements.txt
 
-RUN uv venv /opt/venv --python "${PYTHON_VERSION}" \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv /opt/venv --python "${PYTHON_VERSION}" \
  && if [ "${TORCH_BACKEND}" = "cpu" ]; then \
       # uv.lock pins the CUDA-13 PyTorch wheel, whose ~19 nvidia-*/cuda-*/triton
       # dependencies are emitted as top-level pins in the export. The CPU wheel
       # needs none of them, so drop those lines before installing.
       # --no-hashes is required because the CPU wheel's digest differs from the
       # CUDA wheel recorded in the lock; versions stay exactly pinned.
+      # --torch-backend is a `uv pip`-only feature; `uv sync` cannot express it.
       grep -vE '^(nvidia-|cuda[-_]|triton)' /tmp/requirements.txt > /tmp/requirements.cpu.txt; \
       uv pip install --python /opt/venv --torch-backend=cpu -r /tmp/requirements.cpu.txt; \
     else \
@@ -160,7 +187,8 @@ RUN uv venv /opt/venv --python "${PYTHON_VERSION}" \
 COPY src ./src
 # --no-deps keeps the already-installed torch (possibly the CPU wheel) in place;
 # without it, installing von-sdk would re-resolve torch from PyPI.
-RUN uv pip install --python /opt/venv --no-deps .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --python /opt/venv --no-deps .
 
 # --------------------------------------------------------------- runtime ----
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
@@ -194,6 +222,17 @@ CMD ["--host", "0.0.0.0", "--port", "8000", "--backend", "option-marker"]
 
 ### Notes on the build
 
+- **uv is pinned by copying the binary from `ghcr.io/astral-sh/uv:0.12.17`.** See
+  §3 for why the `curl … | sh` installer was rejected. This also removes the
+  `apt-get` install of `curl` and `ca-certificates`; the base image already ships
+  a CA bundle (verified: 224 KB at `/etc/ssl/certs/ca-certificates.crt`), so no
+  TLS capability is lost.
+- **`--locked`, not `--frozen`.** This is not a workspace. `--locked` fails the
+  build when `uv.lock` is stale; `--frozen` would silently accept it.
+- **The uv cache is a BuildKit cache mount.** `--mount=type=cache,target=/root/.cache/uv`
+  keeps downloaded wheels between builds, which matters because any change to
+  `uv.lock` otherwise re-downloads the CPU wheel. `UV_LINK_MODE=copy` is required
+  alongside it, since the cache and the sync target are on different filesystems.
 - **`--no-hashes` is a deliberate trade-off.** The CPU wheel and the CUDA wheel
   are different artifacts with different digests, so the lock's hashes cannot
   apply to both. Versions remain exactly pinned by the export. This is the only
@@ -359,9 +398,8 @@ jobs:
 Timestamps are UTC, derived from build time via `date -u`. The CUDA variant
 publishes **no** bare `:cuda` tag; its floating "latest" is named `:cuda-latest`.
 
-*Flagged for confirmation at spec review:* this is an intentionally asymmetric
-scheme. `:latest` and `:cuda-latest` are the two tags a consumer is most likely
-to guess.
+The scheme is intentionally asymmetric: `:latest` and `:cuda-latest` are the two
+tags a consumer is most likely to guess. Confirmed at spec review — see §14.
 
 ## 10. Runtime contract
 
@@ -426,11 +464,25 @@ docker run --rm --gpus all -p 8000:8000 -v von-hf:/data/huggingface \
    weights lazily on the first `/v1/systemone` request, so `/health` returns 200
    before any inference is possible. The pre-warm command in §10 is the remedy.
 6. **`--no-hashes`** for the CPU variant, as discussed in §6.
+7. **The CUDA-dependency filter is maintained by hand.** The
+   `grep -vE '^(nvidia-|cuda[-_]|triton)'` step is not derived from the lock; it
+   must be extended if `uv.lock` ever gains a CUDA-only dependency that does not
+   match those prefixes. This is the cost of not adopting uv's `tool.uv.sources`
+   extra-based split, which would require editing `pyproject.toml` and
+   regenerating `uv.lock`.
 
 ## 13. Verification plan
 
-Performed against a real Docker daemon (29.6.1) with buildx 0.35.0 on the build
-machine, before the branch is offered for merge.
+Executed against a real Docker daemon (29.6.1) with buildx 0.35.0 on the build
+machine.
+
+The CPU image was built and verified during design review on 2026-09-21, before
+any plan was executed. Measured results: the build succeeds; `torch` is
+`2.14.0+cpu`; zero `nvidia`/`cuda`/`triton` distributions are present; the
+console script is on `PATH`; the container runs as uid/gid 1001; `/health`
+returns `{"status":"ok",...}`; Docker reports the container `healthy`; the image
+is **993 MB**. The server becomes ready **~7.1 s** after `docker run`, so
+readiness must be polled rather than slept on.
 
 **Dockerfile**
 
@@ -440,8 +492,9 @@ machine, before the branch is offered for merge.
    prints `2.14.0+cpu`.
 4. `docker run --rm --entrypoint python von:cpu -c "import importlib.metadata as m; print(sorted(d.metadata['Name'] for d in m.distributions() if d.metadata['Name'].lower().startswith(('nvidia','cuda','triton'))))"`
    prints `[]`.
-5. `docker run -d -p 8000:8000 von:cpu` then `curl -fsS localhost:8000/health`
-   returns `{"status":"ok",...}`.
+5. `docker run -d -p 8000:8000 von:cpu`, then **poll** `GET /health` until it
+   answers — startup is ~7.1 s, so a fixed `sleep` is a race — and confirm it
+   returns `{"status":"ok",...}` and that Docker reports the container `healthy`.
 6. `docker run --rm --entrypoint python von:cpu -c "import von"` succeeds.
 7. Image size recorded for both variants.
 8. `docker run --rm von:cpu serve --help` confirms the console script is on `PATH`.
@@ -463,6 +516,8 @@ machine, before the branch is offered for merge.
 
 14. Confirm the workflow run succeeds and both packages appear in GHCR.
 15. Confirm the CUDA variant publishes `:cuda-latest` and no bare `:cuda`.
+16. `docker run --rm ghcr.io/astral-sh/uv:0.12.17 --version` prints `uv 0.12.17`,
+    proving the pinned reference in the `Dockerfile` resolves.
 
 The CUDA variant is **not** built locally during verification; it is not
 runnable on the build machine and building it would pull ~8 GB. Its build path
@@ -471,7 +526,7 @@ exercised by CI.
 
 ## 14. Resolutions at spec review
 
-Both items raised for review are closed; nothing is outstanding.
+Three items were raised and closed; nothing is outstanding.
 
 1. **Tag scheme.** The word "edge" was removed from the scheme entirely — both
    the CalVer suffix and the floating pointer tags. The CUDA variant publishes
@@ -480,3 +535,8 @@ Both items raised for review are closed; nothing is outstanding.
    locally to confirm the output (verification item 13).
 2. **README section (D10).** Confirmed: a short "Container image" section will be
    added to `README.md`.
+3. **uv toolchain (D11).** Raised after the first review, when the official uv
+   Docker and PyTorch guides were checked against this design. The toolchain is
+   now pinned, the export uses `--locked`, and the install runs under a BuildKit
+   cache mount. The design was also validated by building the CPU image rather
+   than by inspection alone; the measured results are in §13.

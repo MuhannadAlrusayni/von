@@ -6,16 +6,18 @@
 
 **Architecture:** One parameterized multi-stage `Dockerfile` produces both variants. A `TORCH_BACKEND` build argument selects between the PyTorch CPU wheel and the CUDA wheel pinned in `uv.lock`; everything else in the recipe is shared. Model weights (~3.2 GB) are never baked in — they are fetched from the Hugging Face Hub into a mounted `HF_HOME` volume on first use. A GitHub Actions workflow builds both variants as a matrix and pushes four tags to GHCR.
 
-**Tech Stack:** Docker (multi-stage, `python:3.12-slim-bookworm`), `uv` 0.7+, `uv.lock`, Docker Buildx, GitHub Actions (`docker/build-push-action@v6`), GHCR.
+**Tech Stack:** Docker (multi-stage, `python:3.12-slim-bookworm`), `uv` **0.12.17** (pinned via the official image), `uv.lock`, Docker Buildx (cache mounts), GitHub Actions (`docker/build-push-action@v6`), GHCR.
 
 **Spec:** `docs/superpowers/specs/2026-09-21-container-image-ghcr-design.md`
 
 ## Global Constraints
 
 - Base image is `python:3.12-slim-bookworm` for **both** variants. Do not introduce an `nvidia/cuda` base.
-- `pyproject.toml`, `uv.lock`, and every file under `src/` must **not** be modified. The image is built from them as-is.
+- `pyproject.toml`, `uv.lock`, and every file under `src/` are used as-is. Do not refactor them. You **may** edit them if this work uncovers a defect that requires it — but say so explicitly in the commit message rather than changing them silently.
 - `torch` is pinned at `2.14.0` by `uv.lock`. The CPU image must end up with exactly `2.14.0+cpu`.
 - The CPU image must contain **zero** distributions whose name starts with `nvidia`, `cuda`, or `triton`.
+- `uv` is pinned to **0.12.17** by copying the binary from `ghcr.io/astral-sh/uv:0.12.17`. Do not replace this with the `curl … | sh` installer, and do not use a `latest` tag — that is the whole point of the pin.
+- The build requires **BuildKit**: the `Dockerfile` uses `COPY --from=ghcr.io/astral-sh/uv:…` and `--mount=type=cache`. Docker 29 enables it by default; do not set `DOCKER_BUILDKIT=0`.
 - Architecture is `linux/amd64` only. Do not add `linux/arm64`.
 - The runtime user is `von`, uid **1001**, gid **1001**, and never root.
 - `HF_HOME` is `/data/huggingface`; the container listens on **8000**.
@@ -91,29 +93,32 @@ FROM python:${PYTHON_VERSION}-slim-bookworm AS builder
 ARG PYTHON_VERSION
 ARG TORCH_BACKEND=cpu
 
+# Copy the uv binary from the official distroless image rather than running the
+# curl installer: this pins the toolchain version and removes the apt layer.
+# The binary is statically linked, so it runs on this glibc base.
+COPY --from=ghcr.io/astral-sh/uv:0.12.17 /uv /uvx /bin/
+
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never
-
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl \
- && rm -rf /var/lib/apt/lists/* \
- && curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
 WORKDIR /build
 
 # Dependency layer first, so later source edits do not invalidate the torch install.
 COPY pyproject.toml uv.lock ./
-RUN uv export --frozen --no-dev --no-emit-project --no-hashes \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv export --locked --no-dev --no-emit-project --no-hashes \
       --format requirements-txt -o /tmp/requirements.txt
 
-RUN uv venv /opt/venv --python "${PYTHON_VERSION}" \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv venv /opt/venv --python "${PYTHON_VERSION}" \
  && if [ "${TORCH_BACKEND}" = "cpu" ]; then \
       # uv.lock pins the CUDA-13 PyTorch wheel, whose ~19 nvidia-*/cuda-*/triton
       # dependencies are emitted as top-level pins in the export. The CPU wheel
       # needs none of them, so drop those lines before installing.
       # --no-hashes is required because the CPU wheel's digest differs from the
       # CUDA wheel recorded in the lock; versions stay exactly pinned.
+      # --torch-backend is a `uv pip`-only feature; `uv sync` cannot express it.
       grep -vE '^(nvidia-|cuda[-_]|triton)' /tmp/requirements.txt > /tmp/requirements.cpu.txt; \
       uv pip install --python /opt/venv --torch-backend=cpu -r /tmp/requirements.cpu.txt; \
     else \
@@ -123,7 +128,8 @@ RUN uv venv /opt/venv --python "${PYTHON_VERSION}" \
 COPY src ./src
 # --no-deps keeps the already-installed torch (possibly the CPU wheel) in place;
 # without it, installing von-sdk would re-resolve torch from PyPI.
-RUN uv pip install --python /opt/venv --no-deps .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --python /opt/venv --no-deps .
 
 # --------------------------------------------------------------- runtime ----
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
@@ -155,17 +161,26 @@ ENTRYPOINT ["von", "serve"]
 CMD ["--host", "0.0.0.0", "--port", "8000", "--backend", "option-marker"]
 ```
 
-Two details in this file are load-bearing and must not be "simplified":
+Three details in this file are load-bearing and must not be "simplified":
 - `--no-deps` on the project install. Without it, `uv pip install .` re-resolves `torch` from PyPI and silently replaces the CPU wheel with the CUDA one.
 - The `grep -vE` filter. `uv export` emits the `nvidia-*`, `cuda-*`, and `triton` pins as **top-level** requirements, so `--torch-backend=cpu` alone does not remove them.
+- The `COPY --from=ghcr.io/astral-sh/uv:0.12.17` line, which is what pins the toolchain. `--torch-backend` exists only in the `uv pip` interface, and the `curl … | sh` installer resolves to whatever is current at build time — it produced uv 0.7.17 during design review while the current release was 0.12.17. Replacing the `COPY` re-introduces an unpinned input.
 
-- [ ] **Step 3: Verify the image builds**
+This exact file was built and verified during design review (spec §13): `torch==2.14.0+cpu`, zero CUDA distributions, console script on `PATH`, uid/gid 1001, `/health` OK, image size **993 MB**. If your result differs, stop and compare against the spec before changing anything.
+
+- [ ] **Step 3: Verify the pinned uv image resolves, then build**
 
 Run:
 ```bash
+docker run --rm ghcr.io/astral-sh/uv:0.12.17 --version
+```
+Expected: `uv 0.12.17 (x86_64-unknown-linux-musl)`. If this tag does not resolve, the `COPY --from` in Step 2 fails too, so check here first.
+
+Then run:
+```bash
 docker build --build-arg TORCH_BACKEND=cpu -t von:cpu .
 ```
-Expected: build completes, exit code 0. The first run downloads roughly 500 MB of wheels and can take several minutes.
+Expected: build completes, exit code 0. A cold build takes roughly 3–4 minutes on this machine and downloads the CPU PyTorch wheel and its dependencies; with the cache mount warm, later builds are far quicker.
 
 - [ ] **Step 4: Verify PyTorch is the CPU wheel**
 
@@ -210,11 +225,17 @@ Expected: `uid=1001(von) gid=1001(von)`.
 Run:
 ```bash
 docker run -d --name von-smoke -p 18000:8000 von:cpu
-sleep 5
-curl -fsS http://localhost:18000/health
+for i in $(seq 1 60); do
+  curl -fsS --max-time 2 http://localhost:18000/health && break
+  sleep 0.5
+done
+sleep 35
+docker inspect von-smoke --format 'health={{.State.Health.Status}}'
 docker rm -f von-smoke
 ```
-Expected: JSON containing `"status":"ok"` and `"service":"von-decision-server"`.
+Expected: the `{"status":"ok",...}` JSON, then `health=healthy`.
+
+**Poll, do not `sleep`.** The server takes about **7 seconds** to become ready. A fixed 5- or 6-second sleep is a race that fails intermittently with `curl: (56) Recv failure: Connection reset by peer`; that exact failure was observed during design review and is what this loop replaces.
 
 The health endpoint does not load the model, so this succeeds without the 3.2 GB weight download. Port 18000 is used on the host to avoid colliding with anything already on 8000.
 
@@ -228,13 +249,18 @@ docker volume create von-hf
 docker run --rm -v von-hf:/data/huggingface --entrypoint python von:cpu \
   -c "from huggingface_hub import snapshot_download; snapshot_download('wfzyx/von-1.0')"
 docker run -d --name von-infer -p 18000:8000 -v von-hf:/data/huggingface von:cpu
-sleep 10
-curl -fsS -X POST http://localhost:18000/v1/systemone \
+for i in $(seq 1 60); do
+  curl -fsS --max-time 2 http://localhost:18000/health >/dev/null 2>&1 && break
+  sleep 0.5
+done
+curl -fsS --max-time 600 -X POST http://localhost:18000/v1/systemone \
   -H "Content-Type: application/json" \
   -d '{"model":"von-1.0.0","state":{"error":"Disk volume /var/log at 98% capacity."},"questions":{"requires_intervention":{"type":"noul","instructions":"Does this disk space condition require operational intervention?"}}}'
 docker rm -f von-infer
 ```
 Expected: JSON containing an `answers` object whose `requires_intervention.noul` is a float between `0` and `1`.
+
+The 600-second request timeout is deliberate: this first request loads ~1.5 GB of weights before answering, so a default timeout will abort it mid-load.
 
 `curl -f` makes an HTTP 422 (the server's error path) fail the command, which is the behaviour we want. If bandwidth or disk space preclude this step, record that explicitly rather than marking it passed.
 
@@ -244,7 +270,7 @@ Run:
 ```bash
 docker image inspect von:cpu --format '{{.Size}}' | numfmt --to=iec
 ```
-Expected: a value in the low single-digit GB. Record it for the pull request description.
+Expected: **993 MB**, the value measured during design review. A result in the multi-GB range means the CUDA wheel was installed into the "CPU" image — go back and re-check Step 5. Record the value for the pull request description.
 
 - [ ] **Step 11: Commit**
 
@@ -595,10 +621,12 @@ git commit -m "docs: document container image usage and ghcr tags"
 
 After all three tasks:
 
-- [ ] `git log --oneline` shows three new commits on `ci/container-image-ghcr` beyond the spec commits
+- [ ] `git log --oneline` shows the three implementation commits (`ci:`, `ci:`, `docs:`) on top of the design-spec and plan commits, which stay as they are
 - [ ] `git diff --stat master` touches only `Dockerfile`, `.dockerignore`, `.github/workflows/docker-publish.yml`, `README.md`, and `docs/`
-- [ ] `pyproject.toml`, `uv.lock`, and `src/` are untouched
+- [ ] `pyproject.toml`, `uv.lock`, and `src/` are untouched — unless a defect forced a change, in which case the commit message says so
 - [ ] `docker run --rm --entrypoint python von:cpu -c "import torch; print(torch.__version__)"` prints `2.14.0+cpu`
+- [ ] `docker image inspect von:cpu --format '{{.Size}}' | numfmt --to=iec` is ~993 MB, not multi-GB
+- [ ] `Dockerfile` pins uv with `COPY --from=ghcr.io/astral-sh/uv:0.12.17`, and contains no `curl` installer and no `apt-get`
 - [ ] The workflow's `TORCH_BACKEND` values (`cpu`, `default`) match the branches in the `Dockerfile`
 - [ ] No occurrence of `TODO`, `TBD`, or `FIXME` in any new or modified file
 
