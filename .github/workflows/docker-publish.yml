@@ -32,7 +32,7 @@ jobs:
         id: tags
         run: |
           set -euo pipefail
-          # GHCR rejects uppercase names; the repository is MuhannadAlrusayni/von.
+          # GHCR rejects uppercase names; repository owners may be mixed-case.
           image="${REGISTRY}/${GITHUB_REPOSITORY,,}"
           calver="$(date -u +%Y.%m.%d.%H.%M)"
           {

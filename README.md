@@ -354,7 +354,7 @@ A prebuilt CPU image is published for `linux/amd64`:
 
 ```bash
 docker run --rm -p 8000:8000 -v von-hf:/data/huggingface \
-  ghcr.io/muhannadalrusayni/von:latest
+  ghcr.io/wfzyx/von:latest
 ```
 
 Weights (~3.2 GB) are not baked in; mount a volume at `HF_HOME`
@@ -362,7 +362,7 @@ Weights (~3.2 GB) are not baked in; mount a volume at `HF_HOME`
 
 ```bash
 docker run --rm -v von-hf:/data/huggingface --entrypoint python \
-  ghcr.io/muhannadalrusayni/von:latest \
+  ghcr.io/wfzyx/von:latest \
   -c "from huggingface_hub import snapshot_download; snapshot_download('wfzyx/von-1.0')"
 ```
 
