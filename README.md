@@ -402,7 +402,7 @@ Weights (~3.2 GB) are not baked in; mount a volume at `HF_HOME`
 ```bash
 docker run --rm -v von-hf:/data/huggingface --entrypoint python \
   ghcr.io/wfzyx/von:latest \
-  -c "from huggingface_hub import snapshot_download; snapshot_download('wfzyx/von-1.0')"
+  -c "from huggingface_hub import snapshot_download; snapshot_download('wfzyx/von')"
 ```
 
 Both variants come from the same `Dockerfile`; `TORCH_BACKEND=default` selects
@@ -427,16 +427,16 @@ Command-line flags take precedence where both exist.
 
 | Variable | Default | Description |
 |---|---|---|
-| `VON_BACKEND` | `option-marker` | Decision backend to load. `von serve --backend` overrides it; accepted values are `option-marker`, `modernbert`, `von-1.0`, `marker`, `laya`, `needle`, `berta-v3`. When the engine is used directly rather than through `von serve`, an unset value falls back to `von-1.0`. |
-| `VON_DEVICE` | `auto` | Compute device: `auto`, `cuda`, `rocm`, `mps`, `dml`, `cpu`. `auto` prefers CUDA, then Apple MPS, then CPU. `von serve --device <x>` overrides it, except that passing `--device auto` leaves an existing value in place. |
-| `VON_API_KEY` | unset | When set, `POST /v1/systemone` requires `Authorization: Bearer <VON_API_KEY>`. When unset, the endpoint is unauthenticated. |
+| `VON_BACKEND` | `von-1.2` | Model to load, set by `von serve --model <x>`. Von 1.2 is the only model, so every accepted alias selects it: `von-1.2`, `1.2`, `von-1.1`, `1.1`, `von`, `default`, `latest`, `von-latest`. |
+| `VON_DEVICE` | `auto` | Compute device: `auto`, `cuda`, `rocm`, `mps`, `openvino`, `dml`, `cpu`. `auto` prefers CUDA, then Apple MPS, then an Intel GPU via OpenVINO, then OpenVINO CPU, then PyTorch CPU. `von serve --device <x>` overrides it, except that passing `--device auto` leaves an existing value in place. OpenVINO needs the `intel` extra, which the published image does not install, so there it resolves to PyTorch CPU. |
+| `VON_API_KEY` | unset | Server side: when set, `POST /v1/systemone` requires `Authorization: Bearer <VON_API_KEY>`; when unset the endpoint is unauthenticated. Client side: the Python and TypeScript clients send it as the bearer token. |
 | `HF_HOME` | `/data/huggingface` | Where model weights are cached; roughly 3.2 GB is fetched on first use. Mount a volume here to persist it across container replacements. Outside the image this follows the usual Hugging Face default, `~/.cache/huggingface`. |
 
 ### Clients
 
 | Variable | Default | Description |
 |---|---|---|
-| `VON_BASE_URL` | `http://localhost:8000` | Server address used by the Python and TypeScript clients when not running in-process. |
+| `VON_BASE_URL` | unset | Server address for the Python and TypeScript clients. Setting it forces HTTP mode; otherwise the Python client runs in-process. Defaults to `http://localhost:8000` in HTTP mode. |
 | `TYPESAFE_BASE_URL` | unset | TypeScript client only: fallback for `VON_BASE_URL`. |
 | `TYPESAFE_API_KEY` | unset | Fallback bearer token for both clients when `VON_API_KEY` is unset. |
 

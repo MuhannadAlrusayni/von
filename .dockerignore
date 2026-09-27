@@ -12,6 +12,8 @@ data/
 assets/
 benchmarks/
 examples/
+hf/
+scripts/
 tests/
 training/
 js/

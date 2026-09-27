@@ -63,8 +63,7 @@ ARG PYTHON_VERSION
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:${PATH}" \
-    HF_HOME=/data/huggingface \
-    VON_BACKEND=option-marker
+    HF_HOME=/data/huggingface
 
 COPY --from=builder /opt/venv /opt/venv
 
@@ -81,5 +80,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD python -c "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status==200 else 1)"
 
+# No --model flag on purpose: `von serve` defaults it to von-<VON_VERSION>
+# (engine.py), so omitting it avoids pinning a version that drifts on upgrade.
+# Note `--backend` is not a valid flag -- the flag is `--model`, which the CLI
+# copies into VON_BACKEND. Neither is "option-marker" a valid alias; the
+# accepted set is VON_CURRENT_ALIASES, all of which select the one model.
 ENTRYPOINT ["von", "serve"]
-CMD ["--host", "0.0.0.0", "--port", "8000", "--backend", "option-marker"]
+CMD ["--host", "0.0.0.0", "--port", "8000"]
