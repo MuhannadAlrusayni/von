@@ -13,6 +13,7 @@ decision tasks (Choice, Noul, Score) covering:
 import argparse
 import json
 import os
+import urllib.error
 import random
 from typing import Any, Dict, List, Optional
 from datasets import load_dataset
@@ -844,10 +845,19 @@ def build_universal_corpus(
     output_dir: str = "data_universal",
     max_train: int = 200000,
     val_samples: int = 5000,
+    long_context: int = 40000,
     seed: int = 42,
+    overlap_target: float = 0.32,
+    jevbench_per_task: int = 8000,
+    synthetic_n: int = 0,
+    synthetic_seed: int = 17,
+    distill_path: str = "",
+    distill_per_stream: int = 200000,
 ):
+    from .prepare_long_context_dataset import ensure_dir, write_jsonl
+
     random.seed(seed)
-    os.makedirs(output_dir, exist_ok=True)
+    ensure_dir(output_dir)
 
     print("=============================================================")
     print("Building Phase 4 Universal Decision Corpus (200k samples)")
@@ -910,7 +920,95 @@ def build_universal_corpus(
     print("Loading Adversarial Reasoning Core (ANLI + WANLI)...")
     all_records.extend(prepare_adversarial_core(50000))
 
+    # 7. Long-Context Core (real contracts + synthetic multi-clause policies)
+    if long_context > 0:
+        print("Loading Long-Context Core (legalbench + synthetic policies)...")
+        from .prepare_long_context_dataset import build_long_context_corpus
+
+        long_records = build_long_context_corpus(
+            n_synthetic=long_context,
+            seed=seed,
+            verbose=True,
+        )
+        all_records.extend(long_records)
+
     random.shuffle(all_records)
+
+    # Public decision corpora that do not reward the lexical-overlap shortcut.
+    # PAWS in particular is built so word overlap carries no signal about the
+    # label (measured mean Jaccard 0.890 vs 0.893 across the two classes), and
+    # StrategyQA supplies the implicit multi-hop composition the hard tier needs.
+    if jevbench_per_task:
+        try:
+            from .prepare_jevbench_dataset import TASKS as JB_TASKS, harvest as jb_harvest
+
+            jb_records, jb_licences = jb_harvest(
+                list(JB_TASKS), jevbench_per_task, "/tmp/jevbench_src"
+            )
+            all_records.extend(jb_records)
+            print(f"Added {len(jb_records):,} jev-bench records "
+                  f"({len(jb_licences)} licences: {', '.join(sorted(jb_licences))})")
+            random.shuffle(all_records)
+        except (OSError, urllib.error.URLError) as exc:
+            # A network failure must not take down an instance that is already
+            # billing; a bug in conversion must not be hidden either.
+            print(f"WARNING: jev-bench unreachable, continuing without it ({exc})")
+
+    # Two-hop scenarios whose posteriors are derived, not estimated. Unlike a
+    # distilled label, the target here is correct by construction, and nothing
+    # in it is traceable to another model's judgement.
+    if synthetic_n > 0:
+        from .generate_synthetic_decisions import generate as synth_generate
+
+        s_records = synth_generate(synthetic_n, synthetic_seed)
+        for record in s_records:
+            record.pop("_single", None)
+        all_records.extend(s_records)
+        print(f"Added {len(s_records):,} synthetic two-hop records "
+              f"(derived posteriors, no external labels)")
+        random.shuffle(all_records)
+
+    # Distilled typed decisions with full probability distributions. These are
+    # the only rows in the corpus that teach uncertainty rather than certainty,
+    # and they do not reward the overlap shortcut (measured 18.9% rewards vs
+    # 25.8% punishes, against 48.9%/15.1% for the synthetic universal data).
+    if distill_path and os.path.exists(distill_path):
+        try:
+            from .prepare_distill_dataset import DEFAULT_STREAMS, harvest as distill_harvest
+
+            d_records, d_counts, _ = distill_harvest(
+                distill_path, list(DEFAULT_STREAMS), distill_per_stream, True
+            )
+            all_records.extend(d_records)
+            if not d_records:
+                raise RuntimeError(
+                    f"distill corpus at {distill_path} yielded zero usable records; "
+                    f"refusing to train on a corpus silently missing its soft targets"
+                )
+            print(f"Added {len(d_records):,} distilled records "
+                  f"({', '.join(f'{k}={v:,}' for k, v in d_counts.most_common())})")
+            random.shuffle(all_records)
+        except OSError as exc:
+            # Only an unreadable file is tolerable; a conversion bug must not be
+            # downgraded to a warning, or an instance trains on a corpus that
+            # silently lost the data it was launched to use.
+            print(f"WARNING: distill corpus unreadable, continuing without it ({exc})")
+    elif distill_path:
+        print(f"WARNING: distill corpus not found at {distill_path}; continuing without it")
+
+    # Break the lexical-overlap shortcut before splitting. Measured on this
+    # corpus, the correct option is the highest-overlap option ~80% of the time,
+    # which makes "repeat the premise" a near-optimal rule and is why Von scores
+    # near chance on JevBench's hard tier, where that correlation is broken.
+    # Selection-only: no text is rewritten, so no label can change.
+    if overlap_target and 0 < overlap_target < 1:
+        from .balance_corpus import balance
+
+        all_records, balance_stats = balance(all_records, overlap_target, seed=seed)
+        print(f"Overlap rebalance: gold-is-highest-overlap "
+              f"{balance_stats['gold_top_before']:.1%} -> {balance_stats['gold_top_after']:.1%} "
+              f"(target {overlap_target:.0%}), "
+              f"{balance_stats['before_rows']:,} -> {balance_stats['after_rows']:,} rows")
     print(f"\nTotal collected Universal records: {len(all_records):,}")
 
     val_records = all_records[:val_samples]
@@ -922,13 +1020,10 @@ def build_universal_corpus(
     train_path = os.path.join(output_dir, "train.jsonl")
     val_path = os.path.join(output_dir, "val.jsonl")
 
-    with open(train_path, "w", encoding="utf-8") as f:
-        for rec in train_records:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-
-    with open(val_path, "w", encoding="utf-8") as f:
-        for rec in val_records:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    # Atomic writes: a truncated corpus is worse than no corpus, since the
+    # trainer only discovers it after the instance is already billing.
+    write_jsonl(train_records, train_path)
+    write_jsonl(val_records, val_path)
 
     print(f"Saved {len(train_records):,} train rows to {train_path}")
     print(f"Saved {len(val_records):,} val rows to {val_path}")
@@ -939,10 +1034,31 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default="data_universal")
     parser.add_argument("--max_train", type=int, default=200000)
     parser.add_argument("--val_samples", type=int, default=5000)
+    parser.add_argument("--synthetic_n", type=int, default=0,
+                        help="two-hop synthetic records with derived posteriors")
+    parser.add_argument("--synthetic_seed", type=int, default=17)
+    parser.add_argument("--distill_path", type=str, default="",
+                        help="path to a downloaded jev-distill-corpus train.jsonl (soft targets)")
+    parser.add_argument("--distill_per_stream", type=int, default=200000)
+    parser.add_argument("--jevbench_per_task", type=int, default=8000,
+                        help="max rows per public jev-bench task (0 disables)")
+    parser.add_argument("--overlap_target", type=float, default=0.32,
+                        help="target share of items where the correct option is the "
+                             "highest lexical-overlap option (0 disables rebalancing)")
+    parser.add_argument("--long_context", type=int, default=40000,
+                        help="Synthetic long-document policies to mix in (0 disables the "
+                             "long-context core entirely).")
     args = parser.parse_args()
 
     build_universal_corpus(
         output_dir=args.output_dir,
         max_train=args.max_train,
         val_samples=args.val_samples,
+        long_context=args.long_context,
+        overlap_target=args.overlap_target,
+        jevbench_per_task=args.jevbench_per_task,
+        synthetic_n=args.synthetic_n,
+        synthetic_seed=args.synthetic_seed,
+        distill_path=args.distill_path,
+        distill_per_stream=args.distill_per_stream,
     )

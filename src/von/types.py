@@ -1,14 +1,61 @@
 """Types and schemas for Von decision primitives."""
 
+import json
+import warnings
 from typing import Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
+# Legacy spellings of Noul's criteria keys. The presets once passed these, and
+# pydantic's default extra="ignore" dropped them silently, so every such Noul ran
+# zero-shot with context-free debiasing instead of against its stated criteria.
+_LEGACY_NOUL_CRITERIA = {"pos_criteria": "true", "neg_criteria": "false"}
+
+
+
+# TypeSafe's OpenAPI allows `instructions` (and Score's per-level descriptions,
+# already handled separately below) to be a string, object, or array -- callers
+# use structured instructions as a way to pass machine-checkable criteria
+# alongside the prose. Von's model only ever consumes text, so non-strings are
+# serialised to canonical JSON rather than rejected with a 422.
+def _stringify_instructions(v: Any) -> Any:
+    if isinstance(v, (dict, list)):
+        return json.dumps(v, sort_keys=isinstance(v, dict))
+    return v
 
 class Noul(BaseModel):
     """A yes/no probability question."""
     type: Literal["noul"] = "noul"
     instructions: str
     criteria: Optional[Dict[str, str]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fold_legacy_criteria(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or not any(k in data for k in _LEGACY_NOUL_CRITERIA):
+            return data
+        data = dict(data)
+        criteria = dict(data.get("criteria") or {})
+        for legacy, key in _LEGACY_NOUL_CRITERIA.items():
+            if legacy not in data:
+                continue
+            value = data.pop(legacy)
+            if key in criteria:
+                raise ValueError(f"Noul got both '{legacy}' and criteria['{key}']; use criteria only.")
+            if value:
+                criteria[key] = value
+        warnings.warn(
+            "Noul pos_criteria/neg_criteria are deprecated; "
+            "use criteria={'true': ..., 'false': ...}.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        data["criteria"] = criteria or None
+        return data
+
+    @field_validator("instructions", mode="before")
+    @classmethod
+    def _coerce_instructions(cls, v: Any) -> Any:
+        return _stringify_instructions(v)
 
 
 class Choice(BaseModel):
@@ -17,11 +64,21 @@ class Choice(BaseModel):
     instructions: str
     criteria: Dict[str, Optional[str]]
 
+    @field_validator("instructions", mode="before")
+    @classmethod
+    def _coerce_instructions(cls, v: Any) -> Any:
+        return _stringify_instructions(v)
+
 
 class Score(BaseModel):
     """A position on an ordered scale (2 to 10 levels)."""
     type: Literal["score"] = "score"
     instructions: str
+
+    @field_validator("instructions", mode="before")
+    @classmethod
+    def _coerce_instructions(cls, v: Any) -> Any:
+        return _stringify_instructions(v)
     criteria: List[Union[str, Dict[str, Any]]]
 
 

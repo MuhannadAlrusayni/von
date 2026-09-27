@@ -52,7 +52,8 @@ tar -xzf /tmp/von-marker-src.tar.gz -C /opt/von
 cd /opt/von
 
 /root/.local/bin/uv venv
-/opt/von/.venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# PyPI ships CUDA-enabled Linux torch wheels; the cu121 index now 404s.
+/opt/von/.venv/bin/pip install torch torchvision
 /opt/von/.venv/bin/pip install transformers datasets scipy sentencepiece tiktoken accelerate pydantic
 /opt/von/.venv/bin/pip install -e /opt/von
 export PYTHONPATH="/opt/von/src:$PYTHONPATH"
@@ -67,7 +68,7 @@ echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training..."
 /opt/von/.venv/bin/torchrun --nproc_per_node=$NUM_GPUS training/train_option_marker.py \
     --train_data data_decision/train.jsonl \
     --val_data data_decision/val.jsonl \
-    --base_model_id wfzyx/von-1.0 \
+    --base_model_id wfzyx/von \
     --epochs 3 \
     --batch_size 8 \
     --grad_accum_steps 2 \

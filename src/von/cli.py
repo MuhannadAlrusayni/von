@@ -3,14 +3,16 @@
 import json
 import os
 import sys
+from typing import Any, Dict, List, Union
 import click
 import uvicorn
 
+from .engine import VON_CURRENT_ALIASES, VON_VERSION
 from .api import decide as api_decide
 from .api import judge as api_judge
 from .api import rate as api_rate
 from .api import system_one as api_system_one
-from .backends.berta_backend import _detect_device, get_device_description
+from .device import _detect_device, get_device_description
 
 
 @click.group()
@@ -23,8 +25,17 @@ def main():
 @main.command()
 @click.option("--host", default="0.0.0.0", help="Host interface to bind on.")
 @click.option("--port", default=8000, type=int, help="Port to listen on.")
-@click.option("--backend", default="option-marker", type=click.Choice(["option-marker", "modernbert", "von-1.0", "marker", "laya", "needle", "berta-v3"]), help="Decision backend to load.")
-@click.option("--device", default="auto", help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'dml', 'cpu'.")
+@click.option(
+    "--model",
+    "backend",
+    default=f"von-{VON_VERSION}",
+    # Derived from the engine rather than restated: a hardcoded copy had already
+    # drifted, so the CLI rejected von-latest and default while the library
+    # accepted them.
+    type=click.Choice(sorted(VON_CURRENT_ALIASES)),
+    help=f"Von model version to load (Von {VON_VERSION} is the only model).",
+)
+@click.option("--device", default="auto", help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'openvino', 'dml', 'cpu'.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
 def serve(host: str, port: int, backend: str, device: str, reload: bool):
     """Start the Von System One HTTP server."""
@@ -54,7 +65,7 @@ def serve(host: str, port: int, backend: str, device: str, reload: bool):
 @click.option(
     "--device",
     default="auto",
-    help="Compute device: 'auto', 'cuda', 'mps', 'cpu'.",
+    help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'openvino', 'dml', 'cpu'.",
 )
 def decide(text: str, choices: str, instructions: str, device: str):
     """Classify input text among discrete choices."""
@@ -99,7 +110,7 @@ def decide(text: str, choices: str, instructions: str, device: str):
 @click.option(
     "--device",
     default="auto",
-    help="Compute device: 'auto', 'cuda', 'mps', 'cpu'.",
+    help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'openvino', 'dml', 'cpu'.",
 )
 def judge(text: str, instructions: str, pos: str, neg: str, device: str):
     """Evaluate a yes/no judgment (Noul) and return the probability."""
@@ -141,13 +152,13 @@ def judge(text: str, instructions: str, pos: str, neg: str, device: str):
 @click.option(
     "--device",
     default="auto",
-    help="Compute device: 'auto', 'cuda', 'mps', 'cpu'.",
+    help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'openvino', 'dml', 'cpu'.",
 )
 def rate(text: str, levels: str, instructions: str, device: str):
     """Rate text on an ordered multi-level scale (Score)."""
     if device and device != "auto":
         os.environ["VON_DEVICE"] = device
-    lvl_list = [lvl.strip() for lvl in levels.split(",") if lvl.strip()]
+    lvl_list: List[Union[str, Dict[str, Any]]] = [lvl.strip() for lvl in levels.split(",") if lvl.strip()]
     if len(lvl_list) < 2:
         click.echo("Error: At least two levels must be provided.", err=True)
         sys.exit(1)
@@ -171,8 +182,15 @@ def rate(text: str, levels: str, instructions: str, device: str):
 @click.argument("request_file", type=click.Path(exists=True))
 def eval(request_file: str):
     """Evaluate a JSON request file containing state and questions."""
-    with open(request_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(request_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except OSError as exc:
+        click.echo(f"Error: cannot read {request_file}: {exc}", err=True)
+        sys.exit(1)
+    except json.JSONDecodeError as exc:
+        click.echo(f"Error: {request_file} is not valid JSON: {exc}", err=True)
+        sys.exit(1)
 
     state = data.get("state")
     questions = data.get("questions")

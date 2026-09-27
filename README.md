@@ -3,10 +3,51 @@
 **An Open-Source, Non-Autoregressive System One Decision Model.**  
 *Calibrated discrete, probabilistic, and ordinal inference in sub-25ms.*
 
-[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-wfzyx%2Fvon--1.0-blue)](https://huggingface.co/wfzyx/von-1.0)
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-wfzyx%2Fvon-blue)](https://huggingface.co/wfzyx/von)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+
+---
+
+<p align="center">
+  <img src="assets/von-doom.gif" alt="Von choosing movement and combat actions in Doom, 29 seconds of unedited gameplay" width="640">
+</p>
+
+<p align="center">
+  <sub><b>Von playing Doom.</b> Every movement decision — advance, back off, sidestep a fireball — is one
+  forward pass scoring six option descriptions against a text rendering of the depth buffer.
+  No policy network, no fine-tuning, no reinforcement learning: the same shipped
+  Von weights that answer routing questions, wired to a game loop.
+  33 kills, 36 dodges, 80 seconds, on a GPU.</sub>
+</p>
+
+---
+
+## What's new in 1.2: order-invariant option scoring
+
+Von 1.1 had a defect shared with most option-packing models: **the answer could depend on
+the order the options were listed in.** On JevBench's option-order diagnostic, 49.5% of its
+hard-tier answers changed when the same options were shuffled (reference models: 0–5%).
+
+Von 1.2 removes that at the architecture level. Inside the encoder, each option's tokens
+attend only to the premise and to themselves — never to another option — and every option's
+rotary position restarts at the end of the premise, as if it were the only option present.
+Each option's score is therefore a function of *(premise, that option)* alone. Permuting the
+options permutes the scores and changes nothing else — a guarantee, not a tendency.
+
+| JevBench public tier | Von 1.1 | **Von 1.2** |
+| :--- | ---: | ---: |
+| easy (48) | 93.8% | **100.0%** |
+| standard (72) | 65.3% | 63.9% |
+| hard (111) | 38.7% | **38.7%** |
+| answer flips under option reordering (hard, 4 orderings) | 49.5% | **0.0%** |
+| JevBench Calibration axis (in-sample) | 75.7 | **77.4** |
+
+Retrained from the 1.1 weights under the new attention mask on the full corpus. Also new:
+OpenVINO acceleration for Intel GPUs (`pip install "von-sdk[intel]"`, auto-detected; ~4x
+on an Iris Xe iGPU for 1.1-style checkpoints), and a fitted zero-shot Noul prior (85.1% on
+a held-out dev set, up from 81.7%).
 
 ---
 
@@ -20,7 +61,7 @@ Autoregressive large language models (LLMs) decode token-by-token to perform cla
 - **Non-Autoregressive Parallelism:** Evaluates multiple independent questions across state simultaneously in a single forward pass.
 - **SOTA Empirical Accuracy:** **91.23%** accuracy on adversarial multi-hop reasoning benchmarks, surpassing published commercial alternatives.
 - **Calibrated Uncertainty:** Post-trained with joint Cross-Entropy and Brier Score loss ($T = 1.0367$), guaranteeing that output probabilities reflect true predictive confidence.
-- **Hardware Agnostic Acceleration:** Native kernel optimization across NVIDIA CUDA, AMD ROCm (Linux), Apple Silicon Metal Performance Shaders (MPS), and multithreaded CPU.
+- **Hardware Agnostic Acceleration:** Native kernel optimization across NVIDIA CUDA, AMD ROCm (Linux), Apple Silicon Metal Performance Shaders (MPS), Intel GPUs via OpenVINO, and multithreaded CPU.
 - **Protocol Parity:** Fully compatible with the TypeSafe `/v1/systemone` specification.
 
 ---
@@ -34,10 +75,9 @@ Von is evaluated across two independent empirical suites:
 | Model / Architecture | Model Size | v2 Macro Acc (49 Tasks) | Choice Macro (20 Tasks) | ViZDoom Kills (Defend Center) | GPU Latency | Hosting / Cost |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary MoE | **96.6%** | **96.8%** | 5.62 kills | ~115 ms (API) | Cloud Only ($0.042/1M tokens) |
-| **Von OptionMarker (Current)** | **395M params (1.5 GB)** | **72.0%** | **83.0%** | **9.00 kills** | **~18 ms** | **Local / Free (Apache 2.0)** |
+| **Von 1.1 (Current)** | **395M params (1.5 GB)** | **72.0%** | **83.0%** | **9.00 kills** | **~18 ms** | **Local / Free (Apache 2.0)** |
 | **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 68.4% | 76.2% | N/A | ~93 ms | Local / Free (Apache 2.0) |
 | **Finetuned Qwen3.5** (4B Causal) | 4B params | ~63.5% | 71.0% | 3.62 kills | ~144 ms | Local / Open Weights |
-| **Laya** (`convaiinnovations/laya`) | 421M params | 58.3% | 66.8% | 1.25 kills | ~16 ms | Local / Free (Apache 2.0) |
 
 *Von leads all open local System One models on the 49-task v2 suite at 72.0% macro / 72.4% micro (Choice routing at 83.0%, with symptom triage at 100.0%, home services at 95.7%, and city routing at 94.7%), while outperforming closed-source Jev by +60.1% on real-time ViZDoom arena combat (9.00 vs 5.62 kills).*
 
@@ -53,11 +93,10 @@ The evaluation benchmarks the model across two standard tasks across eight share
 
 | Model / Controller | Model Architecture | Defend Kills (Mean across 8 seeds) | Health Survival (Mean across 8 seeds) | Execution |
 | :--- | :--- | :--- | :--- | :--- |
-| **Von OptionMarker (Zero-Shot)** | **395M Bidirectional ModernBERT** | **9.00 kills** | **12.11 s** | **Local In-Process (Sub-18ms)** |
+| **Von 1.1 (Zero-Shot)** | **395M Bidirectional ModernBERT** | **9.00 kills** | **12.11 s** | **Local In-Process (Sub-18ms)** |
 | **TypeSafe Jev 1.13 API** | Proprietary Hosted Decision Model | 5.62 kills | **13.03 s** | Cloud Hosted (~115ms) |
 | **Finetuned Qwen3.5 4B** | 4B Causal Decoder | 3.62 kills | 11.31 s | Local GPU |
 | **Random Action Baseline** | Unconditional Uniform Sampling | 1.88 kills | 15.77 s | Scripted |
-| **Laya** | 421M ModernBERT-Large Marker | 1.25 kills | 11.89 s | Local GPU |
 | **Finetuned ModernCE** | 149M ModernBERT-Base NLI | 1.25 kills | 11.66 s | Local GPU |
 
 *Von achieves **9.00 average kills** in Defend the Center, outperforming TypeSafe's proprietary Jev 1.13 (+60.1% more kills) and all open models, while running locally with sub-18ms inference latency.*
@@ -337,7 +376,7 @@ von serve --host 0.0.0.0 --port 8000
 curl -X POST http://localhost:8000/v1/systemone \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "von-1.0.0",
+    "model": "von-1.2.0",
     "state": { "error": "Disk volume /var/log at 98% capacity." },
     "questions": {
       "requires_intervention": {

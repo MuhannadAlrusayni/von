@@ -57,7 +57,8 @@ cd /opt/von
 # Setup environment
 uv venv
 source .venv/bin/activate
-uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# PyPI ships CUDA-enabled Linux torch wheels; the cu121 index now 404s.
+uv pip install torch torchvision
 uv pip install transformers datasets scipy sentencepiece tiktoken accelerate awscli
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
@@ -71,7 +72,7 @@ echo "Detected $NUM_GPUS GPUs. Starting PyTorch DDP training..."
 torchrun --nproc_per_node=$NUM_GPUS training/train_rlcd.py \
     --train_data data_decision/train.jsonl \
     --val_data data_decision/val.jsonl \
-    --model_id wfzyx/von-1.0 \
+    --model_id wfzyx/von \
     --epochs 1 \
     --batch_size 4 \
     --grad_accum_steps 4 \
