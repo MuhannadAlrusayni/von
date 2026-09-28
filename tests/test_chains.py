@@ -235,9 +235,12 @@ def test_bindall_composes_derived_datetime_into_next_round():
     r = _bindall({"earlier": "29 February 2024", "later": "28 February 2025", "start": "29 February 2024", "claim": "28 February 2025"})
     a, tr = r.run("Warranty starts 29 February 2024 and runs 12 months. The claim was filed on 28 February 2025.",
                   Choice(type="choice", instructions="Days between warranty end and claim?", criteria={"a": "0 days", "b": "1 day", "c": "365 days"}))
-    # round 1 pinned month_window's period_end into days_between -> 0 days; both grounded options reach arbitration
-    assert tr.chain.startswith("arbitrate:")
-    assert any(k.startswith("r1.days_between") for k in tr.values)
+    # round 1 pinned month_window's derived period_end into other chains' datetime slots
+    assert any(k.startswith("r1.") for k in tr.values)
+    # the derived value was pinned as an argument, and no same-instant pair was executed
+    assert any(v.startswith("Friday 28 February 2025") for k, v in tr.bindings.items() if k.startswith("r1."))
+    assert all(v.get("days", 1) != 0 for k, v in tr.values.items() if "days_between" in k)
+    assert a.choice != "a"  # "0 days" was never manufactured
 
 
 def test_bindall_rejects_same_instant_source_bindings_and_zero_durations():

@@ -357,14 +357,25 @@ class ChainRunner:
 
 
 def _match_value(val: float, criteria: Dict[str, str]) -> Optional[str]:
-    """Pick the option whose label or description contains the formatted value."""
-    cands = {f"{val:.2f}", f"{val:,.2f}", f"{val:.0f}", f"{val:,.0f}", f"{val:g}"}
+    """Option whose text carries the computed value as a standalone number.
+
+    Strict on purpose: the loose form (substring of '%.0f') matched every
+    option containing a '0'. A match needs a token-bounded number equal to
+    the value, a positive value, and exactly one option carrying it."""
+    if val != val or val in (float("inf"), float("-inf")) or val <= 0:
+        return None
+    hits = []
     for k, d in criteria.items():
         hay = f"{k} {d}".replace("_", " ").replace(",", "")
-        for c in cands:
-            if c.replace(",", "") in hay:
-                return k
-    return None
+        for tok in re.findall(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.]|\.\d)", hay):
+            try:
+                x = float(tok)
+            except ValueError:
+                continue
+            if abs(x - val) <= max(0.005, abs(val) * 1e-4) or (abs(x - round(val, 2)) <= 0.005):
+                hits.append(k)
+                break
+    return hits[0] if len(hits) == 1 else None
 
 
 def _sane_bindings(chain: Chain, env: Dict[str, Any]) -> bool:
@@ -380,10 +391,7 @@ def _sane_bindings(chain: Chain, env: Dict[str, Any]) -> bool:
                 dt = _ops._dt(v).replace(tzinfo=None)
             except TypeError:
                 return False
-            # two *source* spans on the same instant is a mis-bind; a derived
-            # value landing on a source date is the result we're after
-            if not (getattr(v, "meta", None) or {}).get("derived"):
-                dts.append(dt)
+            dts.append(dt)
         if slot.kind == "duration":
             try:
                 if float(_ops._dur(v).get("n", 0)) == 0:
