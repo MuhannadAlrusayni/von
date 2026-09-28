@@ -124,6 +124,14 @@ aws s3 cp /opt/von/latency_{tag}.json {s3_results}/latency_{tag}.json
 aws s3 cp /opt/von/serve.log {s3_results}/{tag}.serve.log || true
 """,
     # chain-of-options gate on the 114-item numeric slice; plain baseline reused from the tarball
+    # chains on vs off, same checkpoint: jev standard + jabr v2 + jev hard + jev easy (out-of-sample guard)
+    "gate_chains": """export JEVBENCH_PUBLIC=/opt/von/public
+/opt/von/.venv/bin/python benchmarks/gate_standard.py --device {device} --suites jev_standard,jabr_v2,jev_hard,jev_easy \\
+  --cand-chains /opt/von/src/von/chains/library --out /opt/von/gate_{tag}.json 2>&1 | tee /opt/von/serve.log
+aws s3 cp /opt/von/gate_{tag}.json {s3_results}/gate_{tag}.json
+aws s3 cp benchmarks/data/gate_cache/von-1.2+chains.json {s3_results}/gate_{tag}.cand_cache.json
+aws s3 cp benchmarks/data/gate_cache/von-1.2.json {s3_results}/gate_{tag}.base_cache.json
+""",
     "chains": """export JEVBENCH_PUBLIC=/opt/von/public
 /opt/von/.venv/bin/python benchmarks/probe_chains.py --mode bindall --device {device} \\
   --baseline benchmarks/data/chains_gate.json --out /opt/von/chains_{tag}.json 2>&1 | tee /opt/von/serve.log

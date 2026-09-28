@@ -81,14 +81,18 @@ def hit(row: dict, pick) -> bool:
     return pick == exp
 
 
-def run_ckpt(ckpt: str, rows: List[dict], device: str, cache: str) -> Dict[str, dict]:
+def run_ckpt(ckpt: str, rows: List[dict], device: str, cache: str, chains: str = "") -> Dict[str, dict]:
     done: Dict[str, dict] = {}
     if os.path.exists(cache):
         done = {r["id"]: r for r in json.load(open(cache))}
     todo = [r for r in rows if r["id"] not in done]
     if not todo:
         return done
-    os.environ.pop("VON_CHAINS_DIR", None)
+    if chains:
+        os.environ["VON_CHAINS_DIR"] = chains
+        os.environ.setdefault("VON_CHAINS_MODE", "bindall")
+    else:
+        os.environ.pop("VON_CHAINS_DIR", None)
     from von.backends.option_marker_backend import OptionMarkerBackend
     b = OptionMarkerBackend(checkpoint_dir=ckpt, device=device)
     b._get_model()
@@ -113,7 +117,8 @@ def run_ckpt(ckpt: str, rows: List[dict], device: str, cache: str) -> Dict[str, 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default=os.path.join(ROOT, "checkpoints/von-1.2"))
-    ap.add_argument("--cand", required=True)
+    ap.add_argument("--cand", default="", help="candidate checkpoint (default: same as --base)")
+    ap.add_argument("--cand-chains", default="", help="run the candidate with this chains dir (bindall); cache key gets a +chains suffix")
     ap.add_argument("--device", default="openvino:cpu")
     ap.add_argument("--suites", default="jev_standard,jabr_v2,jev_hard")
     ap.add_argument("--out", required=True)
@@ -126,13 +131,18 @@ def main() -> None:
     cache_dir = os.path.join(ROOT, "benchmarks/data/gate_cache")
     os.makedirs(cache_dir, exist_ok=True)
     base = run_ckpt(a.base, rows, a.device, os.path.join(cache_dir, os.path.basename(a.base.rstrip("/")) + ".json"))
-    cand = run_ckpt(a.cand, rows, a.device, os.path.join(cache_dir, os.path.basename(a.cand.rstrip("/")) + ".json"))
+    cand_ckpt = a.cand or a.base
+    cand_key = os.path.basename(cand_ckpt.rstrip("/")) + ("+chains" if a.cand_chains else "")
+    cand = run_ckpt(cand_ckpt, rows, a.device, os.path.join(cache_dir, cand_key + ".json"), chains=a.cand_chains)
 
     gates = {}
     groups = {"jev_standard": [r for r in rows if r["suite"] == "jev_standard"],
               "jabr_v2": [r for r in rows if r["suite"] == "jabr_v2"],
               "jev_hard": [r for r in rows if r["suite"] == "jev_hard"]}
+    groups["jev_easy"] = [r for r in rows if r["suite"] == "jev_easy"]
     groups["pooled_standard+jabr"] = groups["jev_standard"] + groups["jabr_v2"]
+    groups["pooled_all"] = rows
+    groups = {k: v for k, v in groups.items() if v}
     for fam in sorted({r["family"] for r in groups["jev_standard"] if r["family"]}):
         groups[f"jev_standard/{fam}"] = [r for r in groups["jev_standard"] if r["family"] == fam]
     for name, g in groups.items():
@@ -143,7 +153,7 @@ def main() -> None:
         gg = gates[name]
         print(f"{name:32s} n={gg['n']:4d} base={gg['acc_baseline']:.3f} cand={gg['acc_candidate']:.3f} "
               f"d={gg['delta_pp']:+.1f}pp p={gg['mcnemar_p']:.3f} MDE={gg['mde_pp_80pct']:.1f}pp {gg['verdict']}")
-    json.dump({"base": a.base, "cand": a.cand, "gates": gates}, open(a.out, "w"), indent=1, default=str)
+    json.dump({"base": a.base, "cand": cand_ckpt, "cand_chains": a.cand_chains, "gates": gates}, open(a.out, "w"), indent=1, default=str)
     print("wrote", a.out)
 
 
