@@ -70,7 +70,7 @@ self-hosted measurement (it is the conservative one of the two).
     "hard_tier_p95_s": 0.3868
   },
   "reproduce": {
-    "install": "pip install von-sdk==1.2.3",
+    "install": "pip install von-sdk==1.2.3  (Von 1.2 row)",
     "serve": "von serve --host 127.0.0.1 --port 8123 --device openvino:cpu",
     "measure": "python benchmarks/measure_latency.py --url http://127.0.0.1:8123 --out latency.json",
     "raw": "results/speed/latency_cpu_20260927_2139.json"
@@ -110,3 +110,39 @@ Laya: 205 tok/decision, $0.00288/1k, Cost 86.2.
 uncapped Von-1.2): cap 512 → Δ 0.0 pp (5/5 discordant), cap 1024 → Δ 0.0 pp
 (3/3 discordant). Projected Cost at cap 512: $0.00202/1k → **90.8**; at 1024:
 86.2. Not submitted; a cap is a serving choice to be declared with the run.
+
+
+## Von 1.3: chains on, same weights (2026-09-28)
+
+Same protocol, `von serve` with the bundled chain library active (bindall).
+
+| endpoint | raw p50 | raw p95 | adjusted p50 | Speed | hard p50 | hard p95 | Jev-class |
+|---|---|---|---|---|---|---|---|
+| c7i.xlarge, openvino:cpu | 0.104 s | 0.125 s | 0.358 s | **88.4** | 4.25 s | 75.3 s | PASS |
+| g5.xlarge A10G, cuda | 0.023 s | 0.023 s | 0.195 s | **94.2** | 0.45 s | 6.6 s | PASS |
+
+Raw: `results/speed/latency_cpu_chains.json`, `results/speed/latency_gpu_chains.json`.
+Chains add up to 16 encoder sub-decisions on numeric hard items; the overall
+p50 is unmoved (standard/easy dominate), the hard tail is where it lands.
+
+## Submission: Von 1.3 (new row, same weights)
+
+```json
+{
+  "key": "von-1.3",
+  "display": "Von 1.3 (395M, chain-of-options)",
+  "repo": "https://github.com/wfzyx/von",
+  "underlying": "ModernBERT-large encoder + option-marker head (von-1.2 weights, unchanged) + deterministic chain-of-options controller; zero generated tokens",
+  "licence": "Apache-2.0",
+  "open": true,
+  "endpoint_kind": "cpu",
+  "endpoint_condition": "AWS c7i.xlarge (4 vCPU Xeon 8488C), von serve --device openvino:cpu, loopback, serial; GPU alternate g5.xlarge A10G",
+  "reproduce": {
+    "install": "pip install von-sdk==1.3.0",
+    "serve": "von serve --host 127.0.0.1 --port 8123 --device openvino:cpu",
+    "measure": "python benchmarks/measure_latency.py --url http://127.0.0.1:8123 --out latency.json",
+    "raw": "results/speed/latency_cpu_chains.json"
+  },
+  "usage": "usage.input_tokens is the tokenizer count summed over every encoder pass the request ran (chains included)"
+}
+```

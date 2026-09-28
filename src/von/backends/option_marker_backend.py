@@ -65,7 +65,7 @@ def _format_state(state: Any) -> str:
 # id, so pinned installs keep resolving.
 VON_HF_REPO = "wfzyx/von"
 
-VON_MODEL_ID = "von-1.2.0"
+VON_MODEL_ID = "von-1.3.0"
 
 
 

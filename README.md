@@ -26,10 +26,15 @@ JevBench v1.4 (the public System One benchmark; scores from `results/v1.4/jevben
 | Qwen3.5-4B frozen (semif) | 4B | 44.4 | 66.8 | 83.7 | 59.5 | 47.7 | 1.000 | 0.979 | 0.595 | 0.263 | 0.55 s | 0.022 | gpu |
 | jeff (GLiFormer-large) | ~400M | 36.8 | 67.9 | 63.5 | 76.6 | 30.6 | 1.000 | 0.760 | 0.377 | 0.331 | 2.03 s | 0.006 | cpu |
 | Laya (ModernBERT-large + option marker) | 421M | 36.1 | 63.7 | 71.1 | 86.2 | 30.3 | 0.944 | 0.729 | 0.341 | 0.308 | 1.72 s | 0.003 | cpu |
-| **Von 1.2** (this repo) | **395M** | 34.5 | **75.7** | 70.5¹ | 77.8 | 27.5 | 0.931 | 0.688 | 0.373 | 0.279 | **0.34 s**¹ | 0.006 | cpu |
+| **Von 1.2** (board row) | **395M** | 34.5 | **75.7** | 70.5¹ | 77.8 | 27.5 | 0.931 | 0.688 | 0.373 | 0.279 | **0.34 s**¹ | 0.006 | cpu |
+| **Von 1.3** (this repo, same weights + chains)² | **395M** | — | — | 88.4¹ | — | — | 1.000 | 0.556 | **0.441** | — | 0.36 s¹ | 0.005³ | cpu |
 | GLiNER2-large | ~300M | 31.1 | 24.8 | 61.7 | 73.3 | 15.1 | 0.986 | 0.625 | 0.364 | 0.286 | 2.34 s | 0.008 | cpu |
 
-¹ The board's Speed 70.5 for Von is a v1.3 carry-over with no recorded hardware. Remeasured 2026-09-27 under the JevBench protocol: raw p50 **0.096 s** on a 4-vCPU Xeon 8488C (OpenVINO), adjusted 0.34 s, Speed 89.0; **0.023 s** raw on an A10G, Speed 94.2. Both are inside the Jev-class latency line (≤ 1.30 s adjusted). Details and the submission payload: [`results/speed_remeasure.md`](results/speed_remeasure.md).
+¹ The board's Speed 70.5 for Von is a v1.3 carry-over with no recorded hardware. Remeasured 2026-09-27/28 under the JevBench protocol: Von 1.2 raw p50 **0.096 s** on a 4-vCPU Xeon 8488C (OpenVINO), adjusted 0.34 s, Speed 89.0; Von 1.3 with chains on 0.104 s / 0.36 s / 88.4; **0.023 s** raw on an A10G, Speed 94.2 (both versions). All inside the Jev-class latency line (≤ 1.30 s adjusted). Details and the submission payload: [`results/speed_remeasure.md`](results/speed_remeasure.md).
+
+² Von 1.3 is an inference-engine release over the unchanged von-1.2 weights: chain-of-options on by default. Public-tier accuracies are the local 231-item run (`benchmarks/data/gate_chains_oos.json`); the board's Von 1.2 public numbers were measured by JevBench on the same items (0.931/0.688/0.373) and Von's own local run of 1.2 gives 1.000/0.556/0.378, so compare hard 0.378 → **0.441** (+6.3 pp, 2 vs 9 discordant, McNemar p = 0.065, MDE 12.9 pp) within the local protocol. Zero discordant pairs on easy, standard and jabr v2 (989 items). Sealed and I/C/K wait for the board's own run.
+
+³ Real tokenizer count reported in `usage.input_tokens` (was chars/4): 63 tokens/decision on easy+standard, 1,103 on hard; blended $0.0049/1k at the encoder tariff, Cost 79.3.
 
 Older, longer tables (jabr v2 49-task suite, ViZDoom, training-data coverage) live in [`docs/benchmarks.md`](docs/benchmarks.md).
 
@@ -119,21 +124,22 @@ A CPU and a CUDA image are in [PR #12](https://github.com/wfzyx/von/pull/12); on
 |---|---|---|
 | `--device` / `VON_DEVICE` | `auto` | `cuda`, `mps`, `openvino:gpu`, `openvino:cpu`, `cpu`. Auto prefers OpenVINO CPU over plain torch CPU. |
 | `--max-state-tokens N` / `VON_MAX_STATE_TOKENS` | 8192 | States longer than N tokens are middle-truncated (60 % head, 40 % tail) so question and options always fit the 8192 window. Truncated responses carry a `truncation` field and `X-Von-Truncated` / `Warning` headers. |
-| `--chains DIR` / `VON_CHAINS_DIR` | off | Enable chain-of-options (below). |
+| `--chains DIR` / `VON_CHAINS_DIR` | bundled library | Chain-of-options library (below). `--no-chains` / `VON_CHAINS_DIR=off` disables it. |
+| `VON_CHAINS_MAX_CALLS` | 16 | Encoder sub-decisions a chained item may spend. |
+| `VON_CHAINS_MAX_STATE_TOKENS` | 4096 | Chains stand down on longer states (each sub-decision re-encodes the state). |
 | `VON_API_KEY` | unset | Bearer token required by the server when set (client falls back to `TYPESAFE_API_KEY`). |
 | `VON_MODEL_ID` | `wfzyx/von` | Hugging Face repo or local checkpoint directory. |
 
-## Chain-of-options (experimental)
+## Chain-of-options
 
-Deterministic multi-step computation for temporal/numeric items, driven entirely by Von's own Choice decisions and zero generated tokens:
+Deterministic multi-step computation for temporal/numeric items, driven by Von's own Choice decisions and zero generated tokens. Nothing in it reads the question's wording; it fires on computable structure in the state (two dates, a date and a duration, or two amounts).
 
-1. a regex proposer lists candidate spans (dates, durations, time zones, amounts, percents, tables) — it never decides;
-2. Von picks which chain applies (or `none`) as a Choice over chain descriptions;
-3. Von binds each typed slot as a Choice over the proposed spans of that kind;
-4. a fixed operator library (`add_duration`, `in_zone`, `elapsed_hours`, `prorate`, `cumsum`, …) executes;
-5. the computed result is described in one sentence and the original question is asked about it.
+1. a regex proposer lists typed spans (dates, durations, time zones, amounts, percents, tables) — it never decides;
+2. every chain whose typed slots can be filled is bound (Von picks among candidate spans when a slot is ambiguous) and executed by a fixed operator library (`add_duration`, `in_zone`, `elapsed_hours`, `prorate`, `cumsum`, `is_leap_year`, …);
+3. computed datetimes become spans for the next round, so chains compose (warranty end → days to claim) without composed definitions; bounded by rounds, facts and a sub-decision budget;
+4. a computed value that lands on exactly one option answers through a strict matcher; several grounded candidates go to Von as a Choice between the computed facts; otherwise Von reads the original state plus every computed fact, with provenance.
 
-Chains are TOML files (`src/von/chains/library/`: deadline+timezone, month-window/leap, proration, cumulative-vs-limit, elapsed-window). Enable with `von serve --chains src/von/chains/library`. Any routing miss, unbound slot or executor error falls back to the plain answer. Gate status: paired McNemar on the pooled 114-item numeric slice, reported in `PROGRESS.md`; off by default until it clears.
+Chains are TOML files in `src/von/chains/library/` (deadline+timezone, month-window, proration, cumulative-vs-limit, elapsed-window, days-between, weekday, leap-year). Degenerate bindings (same instant twice, zero duration) are rejected before execution; a lone date fires nothing. Gates (`benchmarks/gate_standard.py --cand-chains`, paired McNemar): public hard 37.8 → 44.1 % (2 vs 9 discordant, p = 0.065), zero discordant pairs on easy, standard and jabr v2. Latency cost lands on the hard tail (hard-tier p50 4.2 s on 4 vCPU, 0.45 s on an A10G); serve chain-heavy loads on GPU or lower `VON_CHAINS_MAX_CALLS`.
 
 ## Training and calibration
 
