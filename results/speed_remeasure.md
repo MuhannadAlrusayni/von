@@ -138,7 +138,7 @@ p50 is unmoved (standard/easy dominate), the hard tail is where it lands.
   "endpoint_kind": "cpu",
   "endpoint_condition": "AWS c7i.xlarge (4 vCPU Xeon 8488C), von serve --device openvino:cpu, loopback, serial; GPU alternate g5.xlarge A10G",
   "reproduce": {
-    "install": "pip install von-sdk==1.3.0",
+    "install": "pip install von-sdk==1.3.1",
     "serve": "von serve --host 127.0.0.1 --port 8123 --device openvino:cpu",
     "measure": "python benchmarks/measure_latency.py --url http://127.0.0.1:8123 --out latency.json",
     "raw": "results/speed/latency_cpu_chains.json"
