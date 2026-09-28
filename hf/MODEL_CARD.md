@@ -16,13 +16,13 @@ tags:
   - non-autoregressive
 ---
 
-# Von 1.2
+# Von 1.3
 
 Von is an open-source, non-autoregressive **System One** decision model. It answers
 structured decisions — pick an option, judge a condition, rate a level — in a single
 bidirectional forward pass, with no token generation and no chain of thought.
 
-- **Version:** 1.2 (`von-1.2.0`)
+- **Version:** 1.3 (`von-1.3.0`; engine release, weights unchanged from 1.2)
 - **Size:** 395M (ModernBERT-large backbone + Option-Marker scoring head)
 - **Context:** 8192 tokens
 - **Repo:** https://github.com/wfzyx/von
@@ -40,6 +40,20 @@ pass yields a full probability distribution over the options.
 
 This is why Von is fast: cost is a single encoder pass regardless of option count,
 instead of one generation per candidate.
+
+### New in 1.3: chain-of-options, real usage tokens
+
+1.3 changes the inference engine, not the weights. A deterministic chain-of-options
+controller runs on states with computable structure (two dates, a date and a duration,
+two amounts): a regex proposer lists typed spans, every chain whose typed slots bind is
+executed by a fixed operator library (date math with month-end clamping, DST-aware zone
+conversion, proration, cumulative sums), computed datetimes feed a bounded second round so
+chains compose, and Von reads the original state plus the computed facts in its normal
+single forward pass. Von's own Choice decisions bind the slots; nothing reads the question;
+zero generated tokens. Paired gate on the JevBench public items, chains on vs off: hard
+37.8 → 44.1 % (2 vs 9 discordant, p = 0.065), zero discordant pairs on easy, standard and
+jabr v2 (989 items). `usage.input_tokens` is now the tokenizer's count over every encoder
+pass (was chars/4). Details: `README.md` and `results/speed_remeasure.md` in the repo.
 
 ### New in 1.2: order-invariant option scoring
 
@@ -70,7 +84,7 @@ weights under the new mask and recovers 1.1's accuracy on every public tier.
 ## Usage
 
 ```bash
-pip install "von-sdk>=1.2.0"
+pip install "von-sdk>=1.3.1"
 ```
 
 ```python
@@ -90,7 +104,7 @@ print(answer.choice, answer.confidence)
 Serve the native TypeSafe-compatible `/v1/systemone` endpoint:
 
 ```bash
-von serve --model von-1.2 --port 8000
+von serve --port 8000            # chains on; --no-chains for the plain 1.2 path
 ```
 
 A TypeScript/JavaScript SDK is also available: `npm install von-sdk`.
