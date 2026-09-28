@@ -306,7 +306,17 @@ class ChainRunner:
 
     # --------------------------------------------------------------- run --
     def applicable(self, state: str) -> bool:
-        return len(NUMERAL_GATE.findall(state)) >= self.min_numerals and bool(self.chains)
+        if not self.chains or len(NUMERAL_GATE.findall(state)) < self.min_numerals:
+            return False
+        if self.mode != "bindall":
+            return True
+        # bindall fires on computable structure only: a lone date yields
+        # weekday/leap-year trivia that measurably hurts unrelated questions
+        sp = propose(state)
+        n_dt = len(by_kind(sp, "datetime"))
+        n_dur = len(by_kind(sp, "duration"))
+        n_amt = len([x for x in by_kind(sp, "number") if x.meta.get("rich")])
+        return n_dt >= 2 or (n_dt >= 1 and n_dur >= 1) or n_amt >= 2
 
     def run(self, state: str, q: Any) -> Tuple[Optional[Any], Trace]:
         tr = Trace()

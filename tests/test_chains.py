@@ -223,9 +223,15 @@ def test_bindall_value_chain_answers_through_matcher():
     assert not any("Which computation" in q for q in r.backend.asked)
 
 
-def test_bindall_bool_chain_adds_fact_never_answers_noul_directly():
+def test_bindall_lone_date_is_gated_out():
     r = _bindall({})
     a, tr = r.run("The contract was signed on 14 February 2024.", Noul(type="noul", instructions="Is the year of signing a leap year?"))
+    assert a is None and tr.fallback == "gate"
+
+
+def test_bindall_bool_chain_adds_fact_never_answers_noul_directly():
+    r = _bindall({})
+    a, tr = r.run("The contract was signed on 14 February 2024 and runs 12 months.", Noul(type="noul", instructions="Is the year of signing a leap year?"))
     assert tr.chain.startswith("ask:") and "leap_year" in tr.chain
     assert "is a leap year: True" in tr.description
     assert "400" not in tr.description  # no stray numerals in facts
