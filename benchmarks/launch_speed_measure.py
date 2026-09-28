@@ -140,6 +140,42 @@ export VON_MAX_STATE_TOKENS=512
 aws s3 cp /opt/von/gate_{tag}.json {s3_results}/gate_{tag}.json
 aws s3 cp benchmarks/data/gate_cache/von-1.2+chains.json {s3_results}/gate_{tag}.cand_cache.json
 """,
+    # Decision Index (multimodalart/jev-decision-index): rebuild the 0.2.1 suite from
+    # sources, serve Von with overflow refusal (their no-truncation rule), run their own
+    # http engine + scorer over all ~150k requests, upload run dir to S3 and to an HF
+    # dataset. HF token from s3://model-weight/secrets/hf_token (HLE is gated).
+    "decision_index": """export HF_TOKEN=$(aws s3 cp s3://model-weight/secrets/hf_token - | tr -d '[:space:]')
+export HF_HUB_DISABLE_XET=1
+[ -n "$HF_TOKEN" ] || (echo "no hf token" && exit 1)
+apt-get -o DPkg::Lock::Timeout=600 -y install git
+git clone -q https://github.com/apolinario/decision-index /opt/di && cd /opt/di && git checkout -q {di_commit}
+uv pip install --python /opt/von/.venv -e "/opt/di[rebuild]" httpx huggingface_hub
+cd /opt/di
+/opt/von/.venv/bin/python -m decision_index suite rebuild --work /opt/di/work 2>&1 | tail -40
+/opt/von/.venv/bin/python -m decision_index suite import \\
+  --rows /opt/di/work/artifacts/benchmark-suite/release-v2-rebuilt/selected-rows.jsonl.gz \\
+  --added-rows /opt/di/work/artifacts/benchmark-suite/release-v2-rebuilt/added-rows.jsonl.gz
+aws s3 sync /opt/di/suite-0.2 {s3_results}/di_suite/ --quiet || true
+
+export VON_ON_OVERFLOW=refuse
+/opt/von/.venv/bin/python -m von.cli serve --host 127.0.0.1 --port 8000 --device {device} > /opt/von/serve.log 2>&1 &
+for i in $(seq 1 120); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 5; done
+curl -sf http://127.0.0.1:8000/health || (cat /opt/von/serve.log; exit 1)
+
+# smoke: 200 rows, must score without runtime errors before the full run
+/opt/von/.venv/bin/python -m decision_index suite sample --n 200 --out /opt/di/sample-200.jsonl.gz
+/opt/von/.venv/bin/python -m decision_index run --engine http --option base_url=http://127.0.0.1:8000 --option model=von-1.3 \\
+  --rows /opt/di/sample-200.jsonl.gz --out /opt/di/runs/smoke 2>&1 | tail -5
+/opt/von/.venv/bin/python -m decision_index score --results /opt/di/runs/smoke/results.jsonl 2>&1 | tail -20
+aws s3 sync /opt/di/runs/smoke {s3_results}/di_{tag}/smoke/ --quiet
+
+# periodic checkpoint upload so a failsafe shutdown loses nothing (resumable)
+( while true; do sleep 900; aws s3 sync /opt/di/runs/von-1.3 {s3_results}/di_{tag}/von-1.3/ --quiet; done ) &
+/opt/von/.venv/bin/python -m decision_index pipeline --engine http --option base_url=http://127.0.0.1:8000 --option model=von-1.3 \\
+  --out /opt/di/runs/von-1.3 --upload wfzyx/decision-index-results --upload-path runs/von-1.3 2>&1 | tail -60
+aws s3 sync /opt/di/runs/von-1.3 {s3_results}/di_{tag}/von-1.3/ --quiet
+aws s3 cp /opt/von/serve.log {s3_results}/{tag}.serve.log || true
+""",
     "chains": """export JEVBENCH_PUBLIC=/opt/von/public
 /opt/von/.venv/bin/python benchmarks/probe_chains.py --mode bindall --device {device} \\
   --baseline benchmarks/data/chains_gate.json --out /opt/von/chains_{tag}.json 2>&1 | tee /opt/von/serve.log
@@ -153,6 +189,8 @@ def main():
     ap.add_argument("--mode", choices=MODES, required=True)
     ap.add_argument("--job", choices=JOBS, default="latency")
     ap.add_argument("--failsafe-min", type=int, default=45)
+    ap.add_argument("--di-commit", default="87d4650", help="apolinario/decision-index commit for --job decision_index")
+    ap.add_argument("--disk-gb", type=int, default=40)
     ap.add_argument("--public", default=os.path.expanduser("~/scratch/jevbench/datasets/public"))
     ap.add_argument("--skip-upload", action="store_true")
     a = ap.parse_args()
@@ -170,7 +208,8 @@ def main():
     ud = "/tmp/user_data_speed.sh"
     with open(ud, "w") as f:
         fmt = dict(s3_results=S3_RESULTS, s3_src=S3_SRC, s3_ckpt=S3_CKPT, s3_public=S3_PUBLIC,
-                   tag=tag, pip=m["pip"], device=m["device"], kind=m["kind"], hardware=m["hardware"], failsafe_min=a.failsafe_min)
+                   tag=tag, pip=m["pip"], device=m["device"], kind=m["kind"], hardware=m["hardware"], failsafe_min=a.failsafe_min,
+                   di_commit=a.di_commit)
         f.write(USER_DATA.format(job=JOBS[a.job].format(**fmt), **fmt))
 
     iid = None
@@ -182,7 +221,7 @@ def main():
                            "--user-data", f"file://{ud}", "--count", "1",
                            "--instance-initiated-shutdown-behavior", "terminate",
                            "--block-device-mappings", json.dumps([{"DeviceName": "/dev/sda1",
-                                                                   "Ebs": {"VolumeSize": 40, "VolumeType": "gp3", "DeleteOnTermination": True}}]),
+                                                                   "Ebs": {"VolumeSize": a.disk_gb, "VolumeType": "gp3", "DeleteOnTermination": True}}]),
                            "--tag-specifications", json.dumps([{"ResourceType": "instance",
                                                                  "Tags": [{"Key": "Name", "Value": f"von-speed-{a.mode}"}]}])])
                 iid = res["Instances"][0]["InstanceId"]
