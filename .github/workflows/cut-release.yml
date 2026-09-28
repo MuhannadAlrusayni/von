@@ -1,45 +1,37 @@
 name: Cut a Release
 
-# Single entry point for shipping a version: verifies pyproject.toml already
-# carries the target version, tags it, creates a proper GitHub Release (a
-# real Release object with a rendered title and body -- a bare `git tag &&
-# git push` only leaves a lightweight tag, which GitHub shows as a small grey
-# commit-message blurb on the tags page, not a Release), and then explicitly
-# dispatches publish-pypi.yml.
+# The single release pipeline. Every publish surface hangs off this one run
+# with `needs`, so a release is either complete or visibly failed -- no more
+# "PyPI went out, npm quietly stayed three versions behind".
 #
-# That last step is not automatic: a tag pushed here using the default
-# GITHUB_TOKEN does NOT fire publish-pypi.yml's `on: push: tags` trigger --
-# GitHub blocks GITHUB_TOKEN-authored events from starting new workflow runs
-# to prevent infinite chains. workflow_dispatch is explicitly exempted from
-# that restriction, so this workflow calls publish-pypi.yml directly instead
-# of relying on the tag push to cascade into it.
+#   check   -- scripts/check_release.py: all seven version sites agree with
+#              the requested version (pyproject, __init__, js/package.json,
+#              VON_VERSION, VON_MODEL_ID, js VON_MODEL, hf/MODEL_CARD.md).
+#              Nothing is tagged until this passes.
+#   tag     -- annotated tag + GitHub Release.
+#   pypi    -- publish-pypi.yml (workflow_call, OIDC trusted publishing)
+#   npm     -- publish-npm.yml  (workflow_call, OIDC provenance)
+#   hf-card -- sync-hf-card.yml (model card -> huggingface.co/wfzyx/von)
+#   verify  -- registries actually serve the version.
+#
+# To release: bump the version everywhere (`python scripts/check_release.py`
+# passes locally), commit to master, then run this workflow with that version.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, matching pyproject.toml (e.g. 1.2.2, no leading v)"
+        description: "Version to release, matching pyproject.toml (e.g. 1.3.2, no leading v)"
         required: true
 
 jobs:
-  release:
+  check:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Verify pyproject.toml matches the requested version
-        run: |
-          set -euo pipefail
-          PROJECT=$(grep -m1 '^version' pyproject.toml | sed -E 's/.*"(.*)".*/\1/')
-          if [ "$PROJECT" != "${{ inputs.version }}" ]; then
-            echo "::error::pyproject.toml is $PROJECT, requested release is ${{ inputs.version }}. Bump and commit pyproject.toml (and src/von/__init__.py) on master first, then re-run this workflow."
-            exit 1
-          fi
-
+      - name: Version lockstep
+        run: python3 scripts/check_release.py --expect "${{ inputs.version }}"
       - name: Refuse to re-cut an existing tag
         run: |
           set -euo pipefail
@@ -48,12 +40,20 @@ jobs:
             exit 1
           fi
 
+  tag:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Create and push the tag
         run: |
           set -euo pipefail
           git tag "v${{ inputs.version }}" "${{ github.sha }}"
           git push origin "v${{ inputs.version }}"
-
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -64,18 +64,54 @@ jobs:
             --verify-tag \
             --generate-notes
 
-      - name: Dispatch the PyPI publish (not a dry run)
-        env:
-          GH_TOKEN: ${{ github.token }}
+  pypi:
+    needs: tag
+    uses: ./.github/workflows/publish-pypi.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      version: ${{ inputs.version }}
+      dry_run: false
+
+  npm:
+    needs: tag
+    uses: ./.github/workflows/publish-npm.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      version: ${{ inputs.version }}
+      dry_run: false
+
+  hf-card:
+    needs: tag
+    uses: ./.github/workflows/sync-hf-card.yml
+    secrets: inherit
+
+  verify:
+    needs: [pypi, npm, hf-card]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Registries serve ${{ inputs.version }}
         run: |
           set -euo pipefail
-          gh workflow run publish-pypi.yml --ref "v${{ inputs.version }}" -f dry_run=false
-
-      - name: Summary
-        run: |
+          V="${{ inputs.version }}"
+          for i in $(seq 1 12); do
+            PY=$(curl -s https://pypi.org/pypi/von-sdk/json | python3 -c 'import json,sys;print(json.load(sys.stdin)["info"]["version"])' || true)
+            NPM=$(npm view von-sdk version 2>/dev/null || true)
+            echo "attempt $i: pypi=$PY npm=$NPM"
+            [ "$PY" = "$V" ] && [ "$NPM" = "$V" ] && break
+            sleep 20
+          done
+          [ "$PY" = "$V" ] || { echo "::error::PyPI serves $PY, expected $V"; exit 1; }
+          [ "$NPM" = "$V" ] || { echo "::error::npm serves $NPM, expected $V"; exit 1; }
+          HF=$(curl -s https://huggingface.co/wfzyx/von/raw/main/README.md | grep -m1 -oE 'von-sdk>=[0-9.]+' | cut -d= -f3)
+          [ "$HF" = "$V" ] || { echo "::error::HF model card pins von-sdk>=$HF, expected $V"; exit 1; }
           {
-            echo "### Cut v${{ inputs.version }}"
-            echo ""
-            echo "- Tag and GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}"
-            echo "- PyPI publish dispatched (workflow_dispatch, dry_run=false): https://github.com/${{ github.repository }}/actions/workflows/publish-pypi.yml"
+            echo "### Released v$V"
+            echo "- https://github.com/${{ github.repository }}/releases/tag/v$V"
+            echo "- https://pypi.org/project/von-sdk/$V/"
+            echo "- https://www.npmjs.com/package/von-sdk/v/$V"
+            echo "- https://huggingface.co/wfzyx/von"
           } >> "$GITHUB_STEP_SUMMARY"

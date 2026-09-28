@@ -1,17 +1,20 @@
 name: Publish to PyPI
 
-# Releases are cut by pushing a version tag:
-#
-#     git tag v1.1.1 && git push origin v1.1.1
-#
-# The tag is the single source of truth and is checked against pyproject.toml
-# before anything is uploaded. PyPI releases are immutable -- a wrong version
-# number cannot be taken back, only yanked -- so the mismatch check runs before
-# the build rather than after.
+# Called by cut-release.yml after the version-lockstep check passed and the
+# tag exists. Not tag-triggered on its own: independent tag triggers are how
+# npm silently stayed at 1.1.1 through three releases. Manual dispatch is kept
+# for dry runs. PyPI releases are immutable -- a wrong version number cannot be
+# taken back, only yanked -- so the version guard runs before the build.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_call:
+    inputs:
+      version:
+        description: "Version being released; must equal pyproject.toml"
+        type: string
+        required: true
+      dry_run:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       dry_run:
@@ -39,16 +42,14 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
-      - name: Verify tag matches pyproject version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Verify requested version matches pyproject version
+        if: inputs.version != ''
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME#v}"
           PROJECT=$(grep -m1 '^version' pyproject.toml | sed -E 's/.*"(.*)".*/\1/')
-          echo "tag=$TAG pyproject=$PROJECT"
-          if [ "$TAG" != "$PROJECT" ]; then
-            echo "::error::Tag v$TAG does not match pyproject.toml version $PROJECT."
-            echo "::error::Bump pyproject.toml or retag. PyPI uploads are irreversible."
+          echo "requested=${{ inputs.version }} pyproject=$PROJECT"
+          if [ "${{ inputs.version }}" != "$PROJECT" ]; then
+            echo "::error::Requested ${{ inputs.version }} but pyproject.toml is $PROJECT. PyPI uploads are irreversible."
             exit 1
           fi
 
@@ -114,7 +115,7 @@ jobs:
           echo "trusted publishing OK: PyPI minted a scoped upload token"
 
       - name: Publish
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.dry_run == false
+        if: inputs.dry_run == false
         # No token: uv reads the GitHub OIDC identity and exchanges it with PyPI.
         run: uv publish --trusted-publishing always dist/*
 

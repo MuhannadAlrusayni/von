@@ -8,6 +8,7 @@ on:
       - "hf/MODEL_CARD.md"
       - "assets/**"
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   sync-hf:
