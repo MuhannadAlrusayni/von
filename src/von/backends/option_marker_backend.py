@@ -27,7 +27,7 @@ from ..types import (
 )
 from .base import BaseBackend
 from ..device import _detect_device, OpenVINODevice
-from ..models.option_marker import OptionMarkerModel
+from ..models.option_marker import OptionMarkerModel, split_digits
 
 
 
@@ -327,6 +327,38 @@ class OptionMarkerBackend(BaseBackend):
         self._noul_prior: Optional[dict] = None
         self._independent_options = False
         self._lock = threading.Lock()
+        # State-length ceiling in tokens. Default 8192 equals the encoder window,
+        # so nothing changes unless a user lowers it (a hard latency ceiling) or
+        # sends a state that would overflow the window (previously a positions
+        # error, now a middle truncation with a warning on the response).
+        self.max_state_tokens = int(os.environ.get("VON_MAX_STATE_TOKENS", "8192"))
+        self._trunc_local = threading.local()
+
+    def _fit_state(self, model, state_text: str, question: str, descriptions: List[str]) -> str:
+        """Middle-truncate the state so question + all option markers always fit.
+
+        Rules and headers sit at the top of a state, ledgers and events at the
+        bottom; the middle is the cheapest place to lose tokens. Keeps 60% head,
+        40% tail, joined by an ellipsis. Records the event on a thread-local so
+        evaluate() can surface it in the response.
+        """
+        tok = model.tokenizer
+        window = int(getattr(model.encoder.config, "max_position_embeddings", 8192))
+        # Everything except the state: question, separator, markers, options.
+        reserve = len(tok(model.pack_sequence("", question, descriptions))["input_ids"]) + 8
+        limit = max(16, min(self.max_state_tokens, window - reserve))
+        text = split_digits(state_text) if model.digit_split else state_text
+        ids = tok(text, add_special_tokens=False)["input_ids"]
+        if len(ids) <= limit:
+            return state_text
+        head = int(limit * 0.6)
+        tail = limit - head - 2
+        fitted = tok.decode(ids[:head]) + " ... " + tok.decode(ids[-tail:])
+        events = getattr(self._trunc_local, "events", None)
+        if events is None:
+            events = self._trunc_local.events = []
+        events.append({"state_tokens": len(ids), "kept_tokens": limit, "strategy": "middle"})
+        return fitted
 
     def _effective_temperature(
         self,
@@ -475,6 +507,7 @@ class OptionMarkerBackend(BaseBackend):
             desc = q.criteria.get(opt)
             descriptions.append(desc.strip() if desc else opt.strip())
 
+        state_text = self._fit_state(model, state_text, q.instructions, descriptions)
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
@@ -525,6 +558,7 @@ class OptionMarkerBackend(BaseBackend):
             neg_desc = "No, condition is false."
 
         descriptions = [pos_desc, neg_desc]
+        state_text = self._fit_state(model, state_text, q.instructions, descriptions)
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
@@ -605,6 +639,7 @@ class OptionMarkerBackend(BaseBackend):
             legend[idx_str] = desc
             descriptions.append(desc)
 
+        state_text = self._fit_state(model, state_text, q.instructions, descriptions)
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
@@ -646,6 +681,7 @@ class OptionMarkerBackend(BaseBackend):
         state_str = _format_state(state)
         answers: Dict[str, Union[NoulAnswer, ChoiceAnswer, ScoreAnswer]] = {}
         total_q_chars = 0
+        self._trunc_local.events = []
 
         for q_id, q_data in questions.items():
             if isinstance(q_data, dict):
@@ -680,8 +716,20 @@ class OptionMarkerBackend(BaseBackend):
             output_tokens=len(answers),
         )
 
+        events = list(getattr(self._trunc_local, "events", []) or [])
+        truncation = None
+        if events:
+            worst = max(events, key=lambda e: e["state_tokens"])
+            truncation = {
+                "state_tokens": worst["state_tokens"],
+                "kept_tokens": worst["kept_tokens"],
+                "strategy": "middle",
+                "questions_affected": len(events),
+            }
+
         return SystemOneResponse(
             model=resolved_model,
             answers=answers,
             usage=usage,
+            truncation=truncation,
         )

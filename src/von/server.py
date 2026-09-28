@@ -4,7 +4,7 @@ import hmac
 import os
 import asyncio
 from typing import Any, Dict, Optional, Union
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
@@ -83,6 +83,7 @@ def list_models():
 @app.post("/v1/systemone", response_model=SystemOneResponse)
 async def system_one_endpoint(
     req: SystemOneRequest,
+    response: Response,
     authorization: Optional[str] = Header(None),
 ):
     expected_key = os.environ.get("VON_API_KEY")
@@ -105,12 +106,22 @@ async def system_one_endpoint(
         # coroutine's event loop thread, stalling every other in-flight request
         # (including /health) for the duration of each inference call. Running
         # it in the default thread pool lets FastAPI keep serving concurrently.
-        response = await asyncio.to_thread(
+        result = await asyncio.to_thread(
             engine.evaluate,
             state=req.state,
             questions=questions,
             model=req.model,
         )
-        return response
+        trunc = getattr(result, "truncation", None)
+        if trunc:
+            # Warn on the wire, not just in the body: a proxy or a client that
+            # only reads `answers` still sees that the state was cut.
+            response.headers["X-Von-Truncated"] = (
+                f"state; tokens={trunc['state_tokens']}; kept={trunc['kept_tokens']}; strategy=middle"
+            )
+            response.headers["Warning"] = (
+                f'199 von "state truncated from {trunc["state_tokens"]} to {trunc["kept_tokens"]} tokens (middle)"'
+            )
+        return result
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc))

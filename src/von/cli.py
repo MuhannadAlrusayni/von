@@ -3,7 +3,7 @@
 import json
 import os
 import sys
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 import click
 import uvicorn
 
@@ -37,9 +37,18 @@ def main():
 )
 @click.option("--device", default="auto", help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'openvino', 'dml', 'cpu'.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
-def serve(host: str, port: int, backend: str, device: str, reload: bool):
+@click.option(
+    "--max-state-tokens",
+    default=None,
+    type=int,
+    help="Middle-truncate states longer than this many tokens (env VON_MAX_STATE_TOKENS). "
+         "Default 8192 = the encoder window; lower it for a hard latency ceiling.",
+)
+def serve(host: str, port: int, backend: str, device: str, reload: bool, max_state_tokens: Optional[int]):
     """Start the Von System One HTTP server."""
     os.environ["VON_BACKEND"] = backend
+    if max_state_tokens is not None:
+        os.environ["VON_MAX_STATE_TOKENS"] = str(max_state_tokens)
     if device and device != "auto":
         os.environ["VON_DEVICE"] = device
     dev_obj = _detect_device(device)

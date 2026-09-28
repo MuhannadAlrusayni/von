@@ -141,6 +141,9 @@ class SystemOneResponse(BaseModel):
     model: str
     answers: Dict[str, Union[NoulAnswer, ChoiceAnswer, ScoreAnswer]]
     usage: Usage
+    # Present only when the state was middle-truncated to fit the encoder
+    # window or VON_MAX_STATE_TOKENS. Extra field; TypeSafe clients ignore it.
+    truncation: Optional[Dict[str, Any]] = None
 
     def __getitem__(self, item: str) -> Union[NoulAnswer, ChoiceAnswer, ScoreAnswer]:
         return self.answers[item]
