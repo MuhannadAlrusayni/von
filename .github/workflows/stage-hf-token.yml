@@ -1,0 +1,13 @@
+name: Stage HF token to S3 (one-off)
+on:
+  workflow_dispatch:
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - run: printf '%s' "${{ secrets.HF_TOKEN }}" | aws s3 cp - s3://model-weight/secrets/hf_token --sse AES256
