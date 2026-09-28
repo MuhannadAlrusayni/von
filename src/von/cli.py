@@ -44,9 +44,17 @@ def main():
     help="Middle-truncate states longer than this many tokens (env VON_MAX_STATE_TOKENS). "
          "Default 8192 = the encoder window; lower it for a hard latency ceiling.",
 )
-def serve(host: str, port: int, backend: str, device: str, reload: bool, max_state_tokens: Optional[int]):
+@click.option(
+    "--chains",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Directory of TOML chain-of-options definitions (env VON_CHAINS_DIR). Off by default.",
+)
+def serve(host: str, port: int, backend: str, device: str, reload: bool, max_state_tokens: Optional[int], chains: Optional[str]):
     """Start the Von System One HTTP server."""
     os.environ["VON_BACKEND"] = backend
+    if chains:
+        os.environ["VON_CHAINS_DIR"] = chains
     if max_state_tokens is not None:
         os.environ["VON_MAX_STATE_TOKENS"] = str(max_state_tokens)
     if device and device != "auto":

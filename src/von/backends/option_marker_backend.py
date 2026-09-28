@@ -333,6 +333,29 @@ class OptionMarkerBackend(BaseBackend):
         # error, now a middle truncation with a warning on the response).
         self.max_state_tokens = int(os.environ.get("VON_MAX_STATE_TOKENS", "8192"))
         self._trunc_local = threading.local()
+        # Chain-of-options: off unless VON_CHAINS_DIR points at a directory of
+        # TOML chains (von serve --chains <dir>). Sub-decisions made by the
+        # runner come back through evaluate_* with runner.active() set, which
+        # is the recursion guard.
+        self.chain_runner = None
+        chains_dir = os.environ.get("VON_CHAINS_DIR", "").strip()
+        if chains_dir:
+            from ..chains.runner import ChainRunner
+            self.chain_runner = ChainRunner(self, chains_dir)
+        self.last_chain_trace = None
+
+    def _maybe_chain(self, state_text: str, q):
+        """Run the chain controller first when enabled; None means answer plainly."""
+        r = self.chain_runner
+        if r is None or r.active():
+            return None
+        try:
+            ans, trace = r.run(state_text, q)
+        except Exception as e:  # noqa: BLE001 - never let the controller break a plain answer
+            self.last_chain_trace = {"fallback": f"runner:{type(e).__name__}:{e}"}
+            return None
+        self.last_chain_trace = trace
+        return ans
 
     def _fit_state(self, model, state_text: str, question: str, descriptions: List[str]) -> str:
         """Middle-truncate the state so question + all option markers always fit.
@@ -499,6 +522,10 @@ class OptionMarkerBackend(BaseBackend):
         if not options:
             return ChoiceAnswer(choice="", probabilities={}, confidence=0.0)
 
+        chained = self._maybe_chain(state_text, q)
+        if chained is not None:
+            return chained
+
         model = self._get_model()
         tok = model.tokenizer
 
@@ -544,6 +571,10 @@ class OptionMarkerBackend(BaseBackend):
         temperature: Optional[float] = None,
         **kwargs,
     ) -> NoulAnswer:
+        chained = self._maybe_chain(state_text, q)
+        if chained is not None:
+            return chained
+
         model = self._get_model()
         tok = model.tokenizer
 
@@ -619,6 +650,10 @@ class OptionMarkerBackend(BaseBackend):
         levels = q.criteria
         if not levels:
             return ScoreAnswer(score=0.0, confidence=0.0, legend={}, probabilities={})
+
+        chained = self._maybe_chain(state_text, q)
+        if chained is not None:
+            return chained
 
         model = self._get_model()
         tok = model.tokenizer
