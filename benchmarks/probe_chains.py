@@ -99,12 +99,13 @@ def run(rows: List[dict], chains_dir: str | None, device: str) -> List[dict]:
     return out
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901
     ap = argparse.ArgumentParser()
     ap.add_argument("--chains", default=os.path.join(ROOT, "src/von/chains/library"))
     ap.add_argument("--family", default="")
     ap.add_argument("--tiers", default="hard,standard")
     ap.add_argument("--device", default="openvino:cpu")
+    ap.add_argument("--mode", default="route", help="chain runner mode: route | bindall (VON_CHAINS_MODE)")
     ap.add_argument("--baseline", default="", help="reuse a previous plain-run json instead of rerunning")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -123,6 +124,7 @@ def main() -> None:
         print("== plain ==")
         base = run(rows, None, a.device)
     print("== chains ==")
+    os.environ["VON_CHAINS_MODE"] = a.mode
     cand = run(rows, a.chains, a.device)
 
     gate = mcnemar_gate([r["hit"] for r in base], [r["hit"] for r in cand], label="chains vs plain")

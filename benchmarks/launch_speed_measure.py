@@ -73,7 +73,7 @@ cleanup() {{
 }}
 trap cleanup EXIT
 shutdown -c 2>/dev/null || true
-shutdown -h +45 &
+shutdown -h +{failsafe_min} &
 
 export DEBIAN_FRONTEND=noninteractive
 systemctl stop unattended-upgrades.service 2>/dev/null || true
@@ -100,15 +100,7 @@ export VON_DEVICE={device}
 export HOME=/root
 echo "=== hardware ==="; lscpu | grep -E 'Model name|^CPU\\(s\\)'; nvidia-smi -L 2>/dev/null || true; free -g; df -h / | tail -1
 
-/opt/von/.venv/bin/python -m von.cli serve --host 127.0.0.1 --port 8000 --device {device} > /opt/von/serve.log 2>&1 &
-for i in $(seq 1 120); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 5; done
-curl -sf http://127.0.0.1:8000/health || (cat /opt/von/serve.log; exit 1)
-
-/opt/von/.venv/bin/python benchmarks/measure_latency.py --url http://127.0.0.1:8000 \\
-  --public /opt/von/public --out /opt/von/latency_{tag}.json \\
-  --hardware "{hardware}" --device {device} --endpoint-kind {kind} --tiers standard,hard --warmup 3
-aws s3 cp /opt/von/latency_{tag}.json {s3_results}/latency_{tag}.json
-aws s3 cp /opt/von/serve.log {s3_results}/{tag}.serve.log || true
+{job}
 echo "=== DONE ==="
 """
 
@@ -120,14 +112,36 @@ def aws(cmd):
     return json.loads(r.stdout) if r.stdout.strip() else {}
 
 
+JOBS = {
+    "latency": """/opt/von/.venv/bin/python -m von.cli serve --host 127.0.0.1 --port 8000 --device {device} > /opt/von/serve.log 2>&1 &
+for i in $(seq 1 120); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 5; done
+curl -sf http://127.0.0.1:8000/health || (cat /opt/von/serve.log; exit 1)
+
+/opt/von/.venv/bin/python benchmarks/measure_latency.py --url http://127.0.0.1:8000 \\
+  --public /opt/von/public --out /opt/von/latency_{tag}.json \\
+  --hardware "{hardware}" --device {device} --endpoint-kind {kind} --tiers standard,hard --warmup 3
+aws s3 cp /opt/von/latency_{tag}.json {s3_results}/latency_{tag}.json
+aws s3 cp /opt/von/serve.log {s3_results}/{tag}.serve.log || true
+""",
+    # chain-of-options gate on the 114-item numeric slice; plain baseline reused from the tarball
+    "chains": """export JEVBENCH_PUBLIC=/opt/von/public
+/opt/von/.venv/bin/python benchmarks/probe_chains.py --mode bindall --device {device} \\
+  --baseline benchmarks/data/chains_gate.json --out /opt/von/chains_{tag}.json 2>&1 | tee /opt/von/serve.log
+aws s3 cp /opt/von/chains_{tag}.json {s3_results}/chains_{tag}.json
+""",
+}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=MODES, required=True)
+    ap.add_argument("--job", choices=JOBS, default="latency")
+    ap.add_argument("--failsafe-min", type=int, default=45)
     ap.add_argument("--public", default=os.path.expanduser("~/scratch/jevbench/datasets/public"))
     ap.add_argument("--skip-upload", action="store_true")
     a = ap.parse_args()
     m = MODES[a.mode]
-    tag = f"{a.mode}_{time.strftime('%Y%m%d_%H%M')}"
+    tag = f"{a.job}_{a.mode}_{time.strftime('%Y%m%d_%H%M')}"
 
     if not a.skip_upload:
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -139,8 +153,9 @@ def main():
 
     ud = "/tmp/user_data_speed.sh"
     with open(ud, "w") as f:
-        f.write(USER_DATA.format(s3_results=S3_RESULTS, s3_src=S3_SRC, s3_ckpt=S3_CKPT, s3_public=S3_PUBLIC,
-                                 tag=tag, pip=m["pip"], device=m["device"], kind=m["kind"], hardware=m["hardware"]))
+        fmt = dict(s3_results=S3_RESULTS, s3_src=S3_SRC, s3_ckpt=S3_CKPT, s3_public=S3_PUBLIC,
+                   tag=tag, pip=m["pip"], device=m["device"], kind=m["kind"], hardware=m["hardware"], failsafe_min=a.failsafe_min)
+        f.write(USER_DATA.format(job=JOBS[a.job].format(**fmt), **fmt))
 
     iid = None
     for itype in m["types"]:

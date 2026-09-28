@@ -137,6 +137,15 @@ def days_inclusive(a: Any, b: Any) -> int:
     return (db - da).days + 1
 
 
+def is_leap_year(x: Any) -> bool:
+    y = _dt(x).year if not isinstance(x, (int, float)) else int(x)
+    return y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)
+
+
+def weekday_name(x: Any) -> str:
+    return _dt(x).strftime("%A")
+
+
 def days_in_year(x: Any) -> int:
     return 366 if calendar.isleap(_dt(x).year) else 365
 
@@ -257,7 +266,7 @@ def count_below(values: List[float], threshold: Any) -> int:
 OPS: Dict[str, Callable[..., Any]] = {
     "add_duration": add_duration, "end_of_day": end_of_day, "in_zone": in_zone,
     "elapsed_hours": elapsed_hours, "elapsed_hours_abs": elapsed_hours_abs, "elapsed_days": elapsed_days, "days_inclusive": days_inclusive,
-    "days_in_year": days_in_year, "prorate": prorate, "percent_of": percent_of,
+    "days_in_year": days_in_year, "is_leap_year": is_leap_year, "weekday_name": weekday_name, "prorate": prorate, "percent_of": percent_of,
     "mul": mul, "div": div, "add": add, "sub": sub, "round_up": round_up, "round_to": round_to,
     "pct_of": pct_of, "lb_to_kg": lb_to_kg, "gb_to_bytes": gb_to_bytes, "tib_to_bytes": tib_to_bytes, "compare": compare,
     "table_series": table_series, "series_sub": series_sub, "cumsum": cumsum, "series_sum": series_sum,

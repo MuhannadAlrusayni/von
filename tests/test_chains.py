@@ -125,9 +125,9 @@ def _runner(route, binds):
     return ChainRunner(b, LIB), b
 
 
-def test_library_loads_all_five_chains():
+def test_library_loads_all_chains():
     names = sorted(c.name for c in load_chains(LIB))
-    assert names == ["cumulative_limit", "deadline_tz", "elapsed_window", "month_window", "proration"]
+    assert names == ["cumulative_limit", "days_between", "deadline_tz", "elapsed_window", "leap_year", "month_window", "proration", "weekday"]
 
 
 def test_deadline_tz_end_to_end():
@@ -206,3 +206,55 @@ def test_recursion_guard_marks_active_during_subdecisions():
     b.evaluate_choice = spy
     r.run("Start 3 Sep 2026 18:30, window 5 hours, event 4 Sep 2026 08:55.", Noul(type="noul", instructions="?"))
     assert seen and all(seen) and not r.active()
+
+
+# ------------------------------------------------------------ bindall mode --
+
+def _bindall(binds):
+    return ChainRunner(StubBackend("none", binds), LIB, mode="bindall")
+
+
+def test_bindall_value_chain_answers_through_matcher():
+    r = _bindall({"start": "2025-03-01", "end": "2025-03-31"})
+    a, tr = r.run("Annual fee is $1,200. Active from 2025-03-01 to 2025-03-31.",
+                  Choice(type="choice", instructions="Prorated fee?", criteria={"a": "$101.92", "b": "$100.00", "c": "$98.63"}))
+    assert a.choice == "a" and tr.chain == "proration"
+    # no route decision was spent
+    assert not any("Which computation" in q for q in r.backend.asked)
+
+
+def test_bindall_bool_chain_adds_fact_never_answers_noul_directly():
+    r = _bindall({})
+    a, tr = r.run("The contract was signed on 14 February 2024.", Noul(type="noul", instructions="Is the year of signing a leap year?"))
+    assert tr.chain.startswith("ask:") and "leap_year" in tr.chain
+    assert "is a leap year: True" in tr.description
+    assert "400" not in tr.description  # no stray numerals in facts
+
+
+def test_bindall_composes_derived_datetime_into_next_round():
+    r = _bindall({"earlier": "29 February 2024", "later": "28 February 2025", "start": "29 February 2024", "claim": "28 February 2025"})
+    a, tr = r.run("Warranty starts 29 February 2024 and runs 12 months. The claim was filed on 28 February 2025.",
+                  Choice(type="choice", instructions="Days between warranty end and claim?", criteria={"a": "0 days", "b": "1 day", "c": "365 days"}))
+    # round 1 pinned month_window's period_end into days_between -> 0 days; both grounded options reach arbitration
+    assert tr.chain.startswith("arbitrate:")
+    assert any(k.startswith("r1.days_between") for k in tr.values)
+
+
+def test_bindall_rejects_same_instant_source_bindings_and_zero_durations():
+    from von.chains.runner import _sane_bindings, load_chain
+    from von.chains.spans import propose
+    ch = load_chain(os.path.join(LIB, "days_between.toml"))
+    sp = propose("Filed 3 March 2025 and again 3 March 2025.")
+    env = {"from": sp[0], "to": sp[0]}
+    assert not _sane_bindings(ch, env)
+
+
+def test_bindall_respects_model_call_budget():
+    os.environ["VON_CHAINS_MAX_CALLS"] = "2"
+    try:
+        r = _bindall({})
+        state = "Dates: 1 March 2025, 5 March 2025, 9 March 2025, 12 March 2025, 20 March 2025 at 09:00 EST. Fee $500, $600, $700 over 12 months."
+        a, tr = r.run(state, Choice(type="choice", instructions="?", criteria={"a": "x", "b": "y"}))
+        assert len(r.backend.asked) <= 3  # 2 bind calls + at most one arbitration
+    finally:
+        del os.environ["VON_CHAINS_MAX_CALLS"]
