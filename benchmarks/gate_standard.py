@@ -92,7 +92,7 @@ def run_ckpt(ckpt: str, rows: List[dict], device: str, cache: str, chains: str =
         os.environ["VON_CHAINS_DIR"] = chains
         os.environ.setdefault("VON_CHAINS_MODE", "bindall")
     else:
-        os.environ.pop("VON_CHAINS_DIR", None)
+        os.environ["VON_CHAINS_DIR"] = "off"
     from von.backends.option_marker_backend import OptionMarkerBackend
     b = OptionMarkerBackend(checkpoint_dir=ckpt, device=device)
     b._get_model()

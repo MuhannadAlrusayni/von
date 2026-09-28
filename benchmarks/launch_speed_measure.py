@@ -132,6 +132,14 @@ aws s3 cp /opt/von/gate_{tag}.json {s3_results}/gate_{tag}.json
 aws s3 cp benchmarks/data/gate_cache/von-1.2+chains.json {s3_results}/gate_{tag}.cand_cache.json
 aws s3 cp benchmarks/data/gate_cache/von-1.2.json {s3_results}/gate_{tag}.base_cache.json
 """,
+    # same, with the 512-token state cap on the candidate (base is served from cache)
+    "gate_chains_cap512": """export JEVBENCH_PUBLIC=/opt/von/public
+export VON_MAX_STATE_TOKENS=512
+/opt/von/.venv/bin/python benchmarks/gate_standard.py --device {device} --suites jev_standard,jabr_v2,jev_hard,jev_easy \\
+  --cand-chains /opt/von/src/von/chains/library --out /opt/von/gate_{tag}.json 2>&1 | tee /opt/von/serve.log
+aws s3 cp /opt/von/gate_{tag}.json {s3_results}/gate_{tag}.json
+aws s3 cp benchmarks/data/gate_cache/von-1.2+chains.json {s3_results}/gate_{tag}.cand_cache.json
+""",
     "chains": """export JEVBENCH_PUBLIC=/opt/von/public
 /opt/von/.venv/bin/python benchmarks/probe_chains.py --mode bindall --device {device} \\
   --baseline benchmarks/data/chains_gate.json --out /opt/von/chains_{tag}.json 2>&1 | tee /opt/von/serve.log

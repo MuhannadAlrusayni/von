@@ -22,7 +22,7 @@ TARIFF_USD_PER_M = 0.01
 def main() -> None:
     ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--device", default="openvino:cpu")
     a = ap.parse_args()
-    os.environ.pop("VON_CHAINS_DIR", None)
+    os.environ["VON_CHAINS_DIR"] = "off"
     from von.backends.option_marker_backend import OptionMarkerBackend
     b = OptionMarkerBackend(checkpoint_dir=os.path.join(ROOT, "checkpoints/von-1.2"), device=a.device); b._get_model()
     per_tier, items = {}, []

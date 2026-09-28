@@ -333,21 +333,36 @@ class OptionMarkerBackend(BaseBackend):
         # error, now a middle truncation with a warning on the response).
         self.max_state_tokens = int(os.environ.get("VON_MAX_STATE_TOKENS", "8192"))
         self._trunc_local = threading.local()
-        # Chain-of-options: off unless VON_CHAINS_DIR points at a directory of
-        # TOML chains (von serve --chains <dir>). Sub-decisions made by the
-        # runner come back through evaluate_* with runner.active() set, which
-        # is the recursion guard.
+        # Chain-of-options: on by default with the bundled library in bindall
+        # mode (Von 1.3). VON_CHAINS_DIR=<dir> swaps the library, VON_CHAINS_DIR=off
+        # (von serve --no-chains) disables it. Sub-decisions made by the runner
+        # come back through evaluate_* with runner.active() set, which is the
+        # recursion guard.
         self.chain_runner = None
         chains_dir = os.environ.get("VON_CHAINS_DIR", "").strip()
-        if chains_dir:
+        if chains_dir.lower() in ("off", "none", "0", "false"):
+            chains_dir = ""
+        elif not chains_dir:
+            chains_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chains", "library")
+        if chains_dir and os.path.isdir(chains_dir):
             from ..chains.runner import ChainRunner
-            self.chain_runner = ChainRunner(self, chains_dir)
+            self.chain_runner = ChainRunner(self, chains_dir, mode=os.environ.get("VON_CHAINS_MODE", "bindall"))
         self.last_chain_trace = None
+        self.chains_max_state_tokens = int(os.environ.get("VON_CHAINS_MAX_STATE_TOKENS", "4096"))
 
     def _maybe_chain(self, state_text: str, q):
         """Run the chain controller first when enabled; None means answer plainly."""
         r = self.chain_runner
         if r is None or r.active():
+            return None
+        # The state cap is a latency ceiling; the controller works inside it.
+        # Every sub-decision would otherwise run the encoder on the full text.
+        model = self._get_model()
+        state_text = self._fit_state(model, state_text, getattr(q, "instructions", "") or "", [])
+        # Chains cost up to VON_CHAINS_MAX_CALLS encoder passes on the state; past
+        # this length that is seconds on CPU, so the controller stands down.
+        if len(model.tokenizer(state_text, add_special_tokens=False)["input_ids"]) > self.chains_max_state_tokens:
+            self.last_chain_trace = {"fallback": "gate:state-too-long"}
             return None
         try:
             ans, trace = r.run(state_text, q)

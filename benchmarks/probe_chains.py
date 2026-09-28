@@ -86,7 +86,7 @@ def run(rows: List[dict], chains_dir: str | None, device: str) -> List[dict]:
     if chains_dir:
         os.environ["VON_CHAINS_DIR"] = chains_dir
     else:
-        os.environ.pop("VON_CHAINS_DIR", None)
+        os.environ["VON_CHAINS_DIR"] = "off"
     from von.backends.option_marker_backend import OptionMarkerBackend
     b = OptionMarkerBackend(checkpoint_dir=os.path.join(ROOT, "checkpoints/von-1.2"), device=device)
     b._get_model()
