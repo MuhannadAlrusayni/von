@@ -9,6 +9,7 @@ Sites (all must derive from pyproject.toml's version X.Y.Z):
   option_marker_backend.py       VON_MODEL_ID = "von-X.Y.0"
   js/src/client.ts               VON_MODEL = "von-X.Y.0"
   hf/MODEL_CARD.md               "# Von X.Y" and `von-sdk>=X.Y.Z`
+  uv.lock                        [[package]] von-sdk version = "X.Y.Z"
 
 Usage: scripts/check_release.py [--expect X.Y.Z]
 """
@@ -42,6 +43,7 @@ def collect() -> dict[str, str]:
         "js/src/client.ts": _grep("js/src/client.ts", r'^export const VON_MODEL\s*=\s*"([^"]+)"'),
         "hf/MODEL_CARD.md#title": _grep("hf/MODEL_CARD.md", r"^# Von (\S+)"),
         "hf/MODEL_CARD.md#pip": _grep("hf/MODEL_CARD.md", r'von-sdk>=([0-9.]+)"'),
+        "uv.lock": _grep("uv.lock", r'^name = "von-sdk"\nversion = "([^"]+)"'),
     }
 
 
@@ -59,6 +61,7 @@ def problems(found: dict[str, str], expect: str | None) -> list[str]:
         "js/src/client.ts": f"von-{major_minor}.0",
         "hf/MODEL_CARD.md#title": major_minor,
         "hf/MODEL_CARD.md#pip": full,
+        "uv.lock": full,
     }
     out = [f"{k}: found {found[k]!r}, want {want[k]!r}" for k in want if found[k] != want[k]]
     if expect and full != expect:

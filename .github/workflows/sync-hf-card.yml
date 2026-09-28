@@ -9,6 +9,10 @@ on:
       - "assets/**"
   workflow_dispatch:
   workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ""
 
 jobs:
   sync-hf:
@@ -16,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5

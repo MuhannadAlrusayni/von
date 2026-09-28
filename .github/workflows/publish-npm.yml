@@ -23,6 +23,10 @@ on:
       dry_run:
         type: boolean
         default: false
+      ref:
+        description: "Commit to build; the bumped SHA from cut-release"
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       dry_run:
@@ -43,6 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
