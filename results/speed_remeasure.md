@@ -88,3 +88,25 @@ multiplicative penalty, so the projected published score is ~29.1 (GPU row:
 66.1, ~29.5). Laya sits at 30.3. More important than the number: the row
 moves from "outside Jev-class" to inside the Jev-class capability ranking,
 which Laya (adjusted 1.72 s) does not.
+
+## Cost: real token count (2026-09-28)
+
+`usage.input_tokens` now sums the encoder's real `input_ids` length over every
+forward pass the request ran (was `len(chars)//4`, never tokenizer-backed).
+Measured on the 231 public items via `benchmarks/measure_tokens.py`, priced at
+the encoder-class tariff JevBench applied to Laya ($0.01/M input):
+
+| tier | n | mean tok | median | p95 | $/1k |
+|---|---|---|---|---|---|
+| easy | 48 | 56 | 58 | 75 | 0.00056 |
+| standard | 72 | 68 | 64 | 88 | 0.00068 |
+| hard | 111 | 1103 | 507 | 3018 | 0.01103 |
+
+Blended (314 v1.1 + 220 hard, JevBench's fixture weights): **$0.00492/1k →
+Cost 79.3** (board row: 0.00551 → 77.8, reconstructed from v1.3, unmeasured).
+Laya: 205 tok/decision, $0.00288/1k, Cost 86.2.
+
+`--max-state-tokens` probe on the 111 public hard items (paired McNemar vs
+uncapped Von-1.2): cap 512 → Δ 0.0 pp (5/5 discordant), cap 1024 → Δ 0.0 pp
+(3/3 discordant). Projected Cost at cap 512: $0.00202/1k → **90.8**; at 1024:
+86.2. Not submitted; a cap is a serving choice to be declared with the run.

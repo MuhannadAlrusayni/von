@@ -357,6 +357,14 @@ class OptionMarkerBackend(BaseBackend):
         self.last_chain_trace = trace
         return ans
 
+    def _count_tokens(self, inputs) -> None:
+        """Accumulate the real encoder input length for the current request's usage."""
+        try:
+            n = int(inputs["input_ids"].shape[-1])
+        except (KeyError, AttributeError, TypeError):
+            return
+        self._trunc_local.tokens = getattr(self._trunc_local, "tokens", 0) + n
+
     def _fit_state(self, model, state_text: str, question: str, descriptions: List[str]) -> str:
         """Middle-truncate the state so question + all option markers always fit.
 
@@ -538,6 +546,7 @@ class OptionMarkerBackend(BaseBackend):
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
+        self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
 
@@ -593,6 +602,7 @@ class OptionMarkerBackend(BaseBackend):
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
+        self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
 
@@ -609,6 +619,7 @@ class OptionMarkerBackend(BaseBackend):
             if not has_explicit:
                 null_packed = model.pack_sequence("", q.instructions, descriptions)
                 null_inputs = tok(null_packed, return_tensors="pt").to(self.device)
+                self._count_tokens(null_inputs)
                 null_pos = (null_inputs["input_ids"][0] == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
                 null_logits = model(
                     input_ids=null_inputs["input_ids"],
@@ -678,6 +689,7 @@ class OptionMarkerBackend(BaseBackend):
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
+        self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
 
@@ -717,6 +729,7 @@ class OptionMarkerBackend(BaseBackend):
         answers: Dict[str, Union[NoulAnswer, ChoiceAnswer, ScoreAnswer]] = {}
         total_q_chars = 0
         self._trunc_local.events = []
+        self._trunc_local.tokens = 0
 
         for q_id, q_data in questions.items():
             if isinstance(q_data, dict):
@@ -743,11 +756,15 @@ class OptionMarkerBackend(BaseBackend):
                 total_q_chars += len(q_obj.instructions or "")
 
         resolved_model = model or VON_MODEL_ID
-        state_tokens = max(1, len(state_str) // 4)
-        q_tokens = max(1, total_q_chars // 4)
+        # Real count: sum of encoder input lengths over every forward pass this
+        # request ran (JevBench's Cost axis uses the system's own count). The
+        # chars/4 guess is the fallback only if no pass was recorded.
+        measured = int(getattr(self._trunc_local, "tokens", 0) or 0)
+        if measured <= 0:
+            measured = max(1, len(state_str) // 4) + max(1, total_q_chars // 4)
 
         usage = Usage(
-            input_tokens=state_tokens + q_tokens,
+            input_tokens=measured,
             output_tokens=len(answers),
         )
 
