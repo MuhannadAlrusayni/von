@@ -332,6 +332,14 @@ class OptionMarkerBackend(BaseBackend):
         # sends a state that would overflow the window (previously a positions
         # error, now a middle truncation with a warning on the response).
         self.max_state_tokens = int(os.environ.get("VON_MAX_STATE_TOKENS", "8192"))
+        # What to do when a state does not fit: "truncate" (default, middle cut
+        # with a warning) or "refuse" (raise; the server answers 422 with a
+        # "context window" message). Benchmarks with a no-truncation rule, such
+        # as the Decision Index, need refuse so an oversize row is recorded as
+        # unsupported rather than answered on a shortened state.
+        self.on_overflow = os.environ.get("VON_ON_OVERFLOW", "truncate").strip().lower()
+        if self.on_overflow not in ("truncate", "refuse"):
+            raise ValueError(f"VON_ON_OVERFLOW must be 'truncate' or 'refuse', got {self.on_overflow!r}")
         self._trunc_local = threading.local()
         # Chain-of-options: on by default with the bundled library in bindall
         # mode (Von 1.3). VON_CHAINS_DIR=<dir> swaps the library, VON_CHAINS_DIR=off
@@ -397,6 +405,12 @@ class OptionMarkerBackend(BaseBackend):
         ids = tok(text, add_special_tokens=False)["input_ids"]
         if len(ids) <= limit:
             return state_text
+        if self.on_overflow == "refuse":
+            raise ValueError(
+                f"state of {len(ids)} tokens exceeds the {limit}-token context window "
+                f"(model window {window}, max_state_tokens {self.max_state_tokens}); "
+                "refusing rather than truncating (VON_ON_OVERFLOW=refuse)"
+            )
         head = int(limit * 0.6)
         tail = limit - head - 2
         fitted = tok.decode(ids[:head]) + " ... " + tok.decode(ids[-tail:])

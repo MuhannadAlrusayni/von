@@ -51,8 +51,17 @@ def main():
     help="Directory of TOML chain-of-options definitions (env VON_CHAINS_DIR). Default: the bundled library.",
 )
 @click.option("--no-chains", is_flag=True, default=False, help="Disable chain-of-options (VON_CHAINS_DIR=off).")
+@click.option(
+    "--on-overflow",
+    type=click.Choice(["truncate", "refuse"]),
+    default=None,
+    help="State longer than the window: middle-truncate with a warning (default) or refuse with HTTP 422 "
+         "(env VON_ON_OVERFLOW). Use refuse under no-truncation benchmark rules.",
+)
 def serve(host: str, port: int, backend: str, device: str, reload: bool, max_state_tokens: Optional[int],
-          chains: Optional[str], no_chains: bool):
+          chains: Optional[str], no_chains: bool, on_overflow: Optional[str]):
+    if on_overflow:
+        os.environ["VON_ON_OVERFLOW"] = on_overflow
     """Start the Von System One HTTP server."""
     os.environ["VON_BACKEND"] = backend
     if no_chains:

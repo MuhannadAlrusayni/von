@@ -101,3 +101,17 @@ def test_http_header_on_truncation(backend, monkeypatch):
     assert "X-Von-Truncated" not in r2.headers
     assert r2.json().get("truncation") is None
     backend.max_state_tokens = 8192
+
+
+def test_refuse_mode_raises_instead_of_truncating(monkeypatch):
+    """VON_ON_OVERFLOW=refuse: an oversize state is an error naming the context window, never a cut."""
+    import pytest
+    from von.backends.option_marker_backend import OptionMarkerBackend
+
+    monkeypatch.setenv("VON_MAX_STATE_TOKENS", "32")
+    monkeypatch.setenv("VON_ON_OVERFLOW", "refuse")
+    monkeypatch.setenv("VON_CHAINS_DIR", "off")
+    be = OptionMarkerBackend()
+    state = "The order shipped on Monday and arrived on Friday. " * 40
+    with pytest.raises(ValueError, match="context window"):
+        be._fit_state(be._get_model(), state, "Was it late?", ["yes", "no"])

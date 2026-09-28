@@ -124,6 +124,7 @@ A CPU and a CUDA image are in [PR #12](https://github.com/wfzyx/von/pull/12); on
 |---|---|---|
 | `--device` / `VON_DEVICE` | `auto` | `cuda`, `mps`, `openvino:gpu`, `openvino:cpu`, `cpu`. Auto prefers OpenVINO CPU over plain torch CPU. |
 | `--max-state-tokens N` / `VON_MAX_STATE_TOKENS` | 8192 | States longer than N tokens are middle-truncated (60 % head, 40 % tail) so question and options always fit the 8192 window. Truncated responses carry a `truncation` field and `X-Von-Truncated` / `Warning` headers. |
+| `--on-overflow truncate\|refuse` / `VON_ON_OVERFLOW` | truncate | `refuse` answers an oversize state with HTTP 422 ("exceeds the … context window") instead of truncating. Required under no-truncation rules such as the Decision Index. |
 | `--chains DIR` / `VON_CHAINS_DIR` | bundled library | Chain-of-options library (below). `--no-chains` / `VON_CHAINS_DIR=off` disables it. |
 | `VON_CHAINS_MAX_CALLS` | 16 | Encoder sub-decisions a chained item may spend. |
 | `VON_CHAINS_MAX_STATE_TOKENS` | 4096 | Chains stand down on longer states (each sub-decision re-encodes the state). |
