@@ -1,197 +1,72 @@
 # Von
 
-**An Open-Source, Non-Autoregressive System One Decision Model.**  
-*Calibrated discrete, probabilistic, and ordinal inference in sub-25ms.*
+**An open-source, non-autoregressive System One decision model.**
+*Calibrated Choice / Noul / Score inference from a 395M ModernBERT encoder, one forward pass, CPU-served.*
 
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-wfzyx%2Fvon-blue)](https://huggingface.co/wfzyx/von)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
 
----
-
 <p align="center">
-  <img src="assets/von-doom.gif" alt="Von choosing movement and combat actions in Doom, 29 seconds of unedited gameplay" width="640">
+  <img src="assets/von-doom.gif" alt="Von choosing movement and combat actions in Doom" width="640">
 </p>
+<p align="center"><sub><b>Von playing Doom.</b> Every action is one forward pass scoring six option descriptions against a text rendering of the depth buffer. Same shipped weights that answer routing questions; no policy network, no RL.</sub></p>
 
-<p align="center">
-  <sub><b>Von playing Doom.</b> Every movement decision — advance, back off, sidestep a fireball — is one
-  forward pass scoring six option descriptions against a text rendering of the depth buffer.
-  No policy network, no fine-tuning, no reinforcement learning: the same shipped
-  Von weights that answer routing questions, wired to a game loop.
-  33 kills, 36 dodges, 80 seconds, on a GPU.</sub>
-</p>
+Von answers three question types over any JSON or text *state* without generating tokens: **Choice** (pick one of K described options, with a probability over all of them), **Noul** (probability that a condition holds) and **Score** (calibrated position on an ordinal scale). It is wire-compatible with the TypeSafe `/v1/systemone` specification, ships as `von-sdk` for Python and TypeScript, and runs on CPU (OpenVINO), CUDA, ROCm and Apple MPS.
 
----
+## Results
 
-## What's new in 1.2: order-invariant option scoring
+JevBench v1.4 (the public System One benchmark; scores from `results/v1.4/jevbench-v1.4-results.json` in the [jevbench repo](https://github.com/fstandhartinger/jevbench)). I/C/S/K are the Intelligence, Calibration, Speed and Cost axes; the composite is their equal-weight geometric mean with JevBench's generalization gate applied. Public-tier accuracies are chance-uncorrected fractions. Latency is JevBench's adjusted p50 (self-hosted rows: raw ×2 + 0.15 s). Cost is JevBench's tariff estimate per 1,000 decisions.
 
-Von 1.1 had a defect shared with most option-packing models: **the answer could depend on
-the order the options were listed in.** On JevBench's option-order diagnostic, 49.5% of its
-hard-tier answers changed when the same options were shuffled (reference models: 0–5%).
+| system | params | I | C | S | K | composite | easy | standard | hard | sealed | p50 latency | $/1k | endpoint |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Jev 1.13 (TypeSafe, closed) | — | 53.1 | 76.3 | 83.3 | 52.0 | **63.3** | 1.000 | 0.990 | 0.741 | 0.367 | 0.65 s | 0.040 | api |
+| hopper (Qwen3.5-4B + LoRA) | 4B | 48.0 | 79.1 | 86.8 | 58.7 | 59.4 | 1.000 | 0.969 | 0.650 | 0.341 | 0.41 s | 0.024 | gpu |
+| Qwen3.5-4B frozen (semif) | 4B | 44.4 | 66.8 | 83.7 | 59.5 | 47.7 | 1.000 | 0.979 | 0.595 | 0.263 | 0.55 s | 0.022 | gpu |
+| jeff (GLiFormer-large) | ~400M | 36.8 | 67.9 | 63.5 | 76.6 | 30.6 | 1.000 | 0.760 | 0.377 | 0.331 | 2.03 s | 0.006 | cpu |
+| Laya (ModernBERT-large + option marker) | 421M | 36.1 | 63.7 | 71.1 | 86.2 | 30.3 | 0.944 | 0.729 | 0.341 | 0.308 | 1.72 s | 0.003 | cpu |
+| **Von 1.2** (this repo) | **395M** | 34.5 | **75.7** | 70.5¹ | 77.8 | 27.5 | 0.931 | 0.688 | 0.373 | 0.279 | **0.34 s**¹ | 0.006 | cpu |
+| GLiNER2-large | ~300M | 31.1 | 24.8 | 61.7 | 73.3 | 15.1 | 0.986 | 0.625 | 0.364 | 0.286 | 2.34 s | 0.008 | cpu |
 
-Von 1.2 removes that at the architecture level. Inside the encoder, each option's tokens
-attend only to the premise and to themselves — never to another option — and every option's
-rotary position restarts at the end of the premise, as if it were the only option present.
-Each option's score is therefore a function of *(premise, that option)* alone. Permuting the
-options permutes the scores and changes nothing else — a guarantee, not a tendency.
+¹ The board's Speed 70.5 for Von is a v1.3 carry-over with no recorded hardware. Remeasured 2026-09-27 under the JevBench protocol: raw p50 **0.096 s** on a 4-vCPU Xeon 8488C (OpenVINO), adjusted 0.34 s, Speed 89.0; **0.023 s** raw on an A10G, Speed 94.2. Both are inside the Jev-class latency line (≤ 1.30 s adjusted). Details and the submission payload: [`results/speed_remeasure.md`](results/speed_remeasure.md).
 
-| JevBench public tier | Von 1.1 | **Von 1.2** |
-| :--- | ---: | ---: |
-| easy (48) | 93.8% | **100.0%** |
-| standard (72) | 65.3% | 63.9% |
-| hard (111) | 38.7% | **38.7%** |
-| answer flips under option reordering (hard, 4 orderings) | 49.5% | **0.0%** |
-| JevBench Calibration axis (in-sample) | 75.7 | **77.4** |
+Older, longer tables (jabr v2 49-task suite, ViZDoom, training-data coverage) live in [`docs/benchmarks.md`](docs/benchmarks.md).
 
-Retrained from the 1.1 weights under the new attention mask on the full corpus. Also new:
-OpenVINO acceleration for Intel GPUs (`pip install "von-sdk[intel]"`, auto-detected; ~4x
-on an Iris Xe iGPU for 1.1-style checkpoints), and a fitted zero-shot Noul prior (85.1% on
-a held-out dev set, up from 81.7%).
+### Von vs Laya
 
----
+Same trunk class (ModernBERT-large encoder + option-marker head), same endpoint kind. Every number is from the JevBench v1.4 results file unless marked.
 
-## Overview
+| metric | Von 1.2 | Laya | source |
+|---|---|---|---|
+| parameters | 395M | 421M | model cards |
+| Intelligence | 34.5 | 36.1 | v1.4 axes |
+| Calibration | 75.7 | 63.7 | v1.4 axes |
+| Speed (board) | 70.5 (unmeasured carry-over) | 71.1 | v1.4 axes |
+| Speed (remeasured, CPU) | 89.0 | — | `results/speed_remeasure.md` |
+| Cost | 77.8 | 86.2 | v1.4 axes |
+| Composite | 27.5 | 30.3 | v1.4 |
+| public easy / standard / judge / hard | 0.931 / 0.688 / 0.685 / 0.373 | 0.944 / 0.729 / 0.692 / 0.341 | v1.4 tiers |
+| sealed accuracy (308 items) | 0.279 | 0.308 | v1.4 sealed |
+| sealed ECE | 0.107 | 0.172 | v1.4 sealed |
+| adjusted p50 latency | 0.34 s (remeasured) | 1.72 s | v1.4 / remeasure |
+| Jev-class latency line (≤ 1.30 s) | inside (remeasured) | outside | v1.4 rule |
+| $ per 1,000 decisions (estimate) | 0.0055 | 0.0029 | v1.4 cost |
+| order-invariant option scoring | yes (independent-options masking) | not stated | this repo |
 
-Autoregressive large language models (LLMs) decode token-by-token to perform classification, intent routing, and guardrail validation. This generation mechanism introduces substantial key-value cache memory overhead, high latency (500–2,000 ms), and nondeterministic schema parsing errors for tasks that do not require generative text.
+Where Laya leads: standard tier (+4.1 pp), Cost, sealed accuracy. Where Von leads: Calibration (+12.0), hard tier (+3.2 pp), sealed ECE, and, once the remeasurement is on the board, Speed and Jev-class eligibility.
 
-**Von** implements the **System One** computational paradigm: reflexive, parallel, deterministic, and statistically calibrated decision-making. Operating entirely in-process or via an HTTP server, Von evaluates arbitrary discrete and continuous criteria directly over input state in a single forward pass without autoregressive text generation.
+## Quickstart
 
-### Key Capabilities
-- **Non-Autoregressive Parallelism:** Evaluates multiple independent questions across state simultaneously in a single forward pass.
-- **SOTA Empirical Accuracy:** **91.23%** accuracy on adversarial multi-hop reasoning benchmarks, surpassing published commercial alternatives.
-- **Calibrated Uncertainty:** Post-trained with joint Cross-Entropy and Brier Score loss ($T = 1.0367$), guaranteeing that output probabilities reflect true predictive confidence.
-- **Hardware Agnostic Acceleration:** Native kernel optimization across NVIDIA CUDA, AMD ROCm (Linux), Apple Silicon Metal Performance Shaders (MPS), Intel GPUs via OpenVINO, and multithreaded CPU.
-- **Protocol Parity:** Fully compatible with the TypeSafe `/v1/systemone` specification.
-
----
-
-## Empirical Benchmark
-
-Von is evaluated across two independent empirical suites:
-1. **Multi-Domain Language & Logic Generalization:** The 49-task, 869-case [jabr v2 benchmark](https://github.com/jabr/classifier-benchmark/blob/main/results/v1v2-summary.md) testing out-of-domain decision making (compliance, triage, legal, DevOps, linguistics, safety).
-2. **Real-Time Interactive Robotics/Gaming:** The standard 8-seed [ViZDoom evaluation protocol](https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/) testing sub-20ms real-time control (aiming, centering, firing) purely zero-shot from structured scene text.
-
-| Model / Architecture | Model Size | v2 Macro Acc (49 Tasks) | Choice Macro (20 Tasks) | ViZDoom Kills (Defend Center) | GPU Latency | Hosting / Cost |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **TypeSafe Jev** (`typesafe/jev-1.13`) | Proprietary MoE | **96.6%** | **96.8%** | 5.62 kills | ~115 ms (API) | Cloud Only ($0.042/1M tokens) |
-| **Von 1.1 (Current)** | **395M params (1.5 GB)** | **72.0%** | **83.0%** | **9.00 kills** | **~18 ms** | **Local / Free (Apache 2.0)** |
-| **GLiNER2** (`fastino/gliner2-large-v1`) | ~300M params | 68.4% | 76.2% | N/A | ~93 ms | Local / Free (Apache 2.0) |
-| **Finetuned Qwen3.5** (4B Causal) | 4B params | ~63.5% | 71.0% | 3.62 kills | ~144 ms | Local / Open Weights |
-
-*Von leads all open local System One models on the 49-task v2 suite at 72.0% macro / 72.4% micro (Choice routing at 83.0%, with symptom triage at 100.0%, home services at 95.7%, and city routing at 94.7%), while outperforming closed-source Jev by +60.1% on real-time ViZDoom arena combat (9.00 vs 5.62 kills).*
-
----
-
-### Zero-Shot ViZDoom Real-Time Gameplay Evaluation
-
-Following the standard evaluation protocol from independent benchmarking and TypeSafe's Doom demonstrations, models are evaluated controlling real-time gameplay in [ViZDoom](https://vizdoom.farama.org/) purely zero-shot from structured semantic scene observations.
-
-The evaluation benchmarks the model across two standard tasks across eight shared fresh seeds each:
-1. **Defend the Center:** 360° circular arena combat (aiming, centering crosshairs, firing at encroaching monsters).
-2. **Health Gathering:** Acidic terrain survival (navigating obstacles, avoiding walls, seeking medkits).
-
-| Model / Controller | Model Architecture | Defend Kills (Mean across 8 seeds) | Health Survival (Mean across 8 seeds) | Execution |
-| :--- | :--- | :--- | :--- | :--- |
-| **Von 1.1 (Zero-Shot)** | **395M Bidirectional ModernBERT** | **9.00 kills** | **12.11 s** | **Local In-Process (Sub-18ms)** |
-| **TypeSafe Jev 1.13 API** | Proprietary Hosted Decision Model | 5.62 kills | **13.03 s** | Cloud Hosted (~115ms) |
-| **Finetuned Qwen3.5 4B** | 4B Causal Decoder | 3.62 kills | 11.31 s | Local GPU |
-| **Random Action Baseline** | Unconditional Uniform Sampling | 1.88 kills | 15.77 s | Scripted |
-| **Finetuned ModernCE** | 149M ModernBERT-Base NLI | 1.25 kills | 11.66 s | Local GPU |
-
-*Von achieves **9.00 average kills** in Defend the Center, outperforming TypeSafe's proprietary Jev 1.13 (+60.1% more kills) and all open models, while running locally with sub-18ms inference latency.*
-
-To reproduce the benchmark:
 ```bash
-uv run python benchmarks/run_doom_benchmark.py
+pip install von-sdk          # or: uv add von-sdk
+bun add von-sdk              # TypeScript / Node
 ```
 
----
-
-## The Decision Primitives
-
-Von formalizes decision problems into three mathematically grounded primitives:
-
-### 1. Choice: Categorical Decision
-Computes a normalized probability distribution over a set of $K$ mutually exclusive candidate hypotheses $\{c_1, c_2, \dots, c_K\}$:
-
-$$P(c_k \mid S, Q) = \frac{\exp(z_k / T)}{\sum_{j=1}^K \exp(z_j / T)}$$
-
-Where $S$ is the observed state, $Q$ is the question specification, $z_k$ is the logit assigned to hypothesis $c_k$, and $T = 1.1692$ is the calibration temperature. The confidence metric corresponds to the difference between the top two probabilities:
-
-$$\text{Confidence} = P(c_{(1)}) - P(c_{(2)})$$
-
-### 2. Noul: Binary Probability Verification
-Estimates the calibrated posterior probability that a specific condition holds true given the evidence:
-
-$$P(y = 1 \mid S, Q) \in [0.0, 1.0]$$
-
-Unlike standard binary classifiers, Noul leverages dual positive and negative criteria framing to counteract lexical negation biases.
-
-### 3. Score: Ordinal Continuous Rating
-Computes the expected value across an ordered sequence of severity or quality levels $\{0, 1, \dots, K-1\}$:
-
-$$\mathbb{E}[L \mid S, Q] = \sum_{l=0}^{K-1} l \cdot P(l \mid S, Q)$$
-
-This produces a continuous rating on the scale $[0, K-1]$ that natively respects ordinal hierarchy without prompt distortion.
-
----
-
-## Training Methodology & Calibration
-
-Von-1.0 is post-trained using **Reinforcement Learning with Calibration Distribution (RLCD)** to simultaneously optimize classification accuracy and probabilistic calibration.
-
-### 1. Dual Objective Loss
-Standard Cross-Entropy produces overconfident, poorly calibrated probability estimates. Von minimizes a composite loss function penalizing both classification error and Brier forecast divergence:
-
-$$\mathcal{L}_{\text{RLCD}} = \mathcal{L}_{\text{CE}} + \lambda \mathcal{L}_{\text{Brier}}$$
-
-Where $\lambda = 0.5$ and the multi-class Brier penalty is defined across candidate hypotheses:
-
-$$\mathcal{L}_{\text{Brier}} = \sum_{k=1}^K \left( P(c_k \mid S, Q) - \mathbf{1}[y = k] \right)^2$$
-
-### 2. Balanced Adversarial Corpus
-The training dataset consists of **250,000 class-balanced examples** curated from human-and-model-in-the-loop adversarial reasoning benchmarks:
-- **ANLI (Rounds 1–3):** Adversarially generated multi-hop inference pairs designed to bypass standard attention heuristics.
-- **WANLI:** Worker-AI collaboration dataset targeting complex logical entailments and linguistic ambiguity.
-- **MultiNLI & SNLI:** Cross-genre premise-hypothesis reasoning.
-
-### 3. Temperature Scaling
-Post-training calibration is achieved by fitting an empirical temperature scalar $T$ on held-out validation logits via bounded negative log-likelihood minimization:
-
-$$\min_T -\sum_{i=1}^N \log \left( \frac{\exp(z_{i, y_i} / T)}{\sum_j \exp(z_{i, j} / T)} \right)$$
-
-Optimization converged at **$T = 1.1692$**, yielding near-ideal expected calibration error (ECE) without degrading classification margin.
-
----
-
-## Installation
-
-### Python
-```bash
-pip install von-sdk
-# or with uv
-uv add von-sdk
-
-# or directly from GitHub:
-pip install git+https://github.com/wfzyx/von.git
-```
-
-### TypeScript / JavaScript (Node.js & Bun)
-```bash
-bun add von-sdk
-# or npm install von-sdk
-```
-
----
-
-## Python API Usage
-
-### 1. Discrete Decision (`von.decide`)
 ```python
 import von
 
-result = von.decide(
+r = von.decide(
     state="Database replication lag on cluster us-west-2 exceeded 45 seconds.",
     choices={
         "infrastructure": "Database, hardware, network, or server failures",
@@ -200,268 +75,70 @@ result = von.decide(
     },
     instructions="Classify the root cause domain of this incident.",
 )
+r.choice, r.confidence, r.probabilities   # 'infrastructure', 0.84, {...}
 
-print(result.choice)         # 'infrastructure'
-print(result.confidence)     # 0.8412
-print(result.probabilities)  # {'infrastructure': 0.9021, 'billing': 0.0489, ...}
+p = von.judge(state="Connection pool exhausted on port 5432.", instructions="Is this blocking customers?")
+s = von.rate(state="Memory at 98%, OOM killer firing.", criteria=["Nominal", "Degraded", "Critical"],
+             instructions="Assess degradation level.")
 ```
 
-### 2. Probabilistic Condition Verification (`von.judge`)
-```python
-import von
+Several questions over one state cost one forward pass:
 
-p_blocking = von.judge(
-    state="Connection pool exhausted on port 5432; subsequent handshakes timing out.",
-    instructions="Is this issue actively blocking customer operations?",
+```python
+resp = von.system_one(
+    state={"ticket": "INC-4091", "message": "Payment gateway timeouts on charge authorizations. Urgent."},
+    questions={
+        "intent": von.choice(instructions="Nature of the ticket?", criteria={"payment_failure": "...", "access_issue": "..."}),
+        "is_urgent": von.noul(instructions="Needs immediate SLA intervention?"),
+        "severity": von.score(instructions="Rate severity.", criteria=["Low", "Medium", "High", "Critical"]),
+    },
 )
-
-print(p_blocking)  # 0.9412
-if p_blocking > 0.8:
-    trigger_incident_response()
+resp.answers["intent"].choice, resp.answers["is_urgent"].noul, resp.answers["severity"].score
 ```
 
-### 3. Continuous Scale Rating (`von.rate`)
-```python
-import von
+TypeScript mirrors the same API (`decide`, `judge`, `rate`, `systemOne`) and can also talk to any `/v1/systemone` server via `VON_BASE_URL`.
 
-rating = von.rate(
-    state="Memory utilization reached 98% with frequent OOM killer invocations.",
-    criteria=[
-        "Nominal operation; within acceptable variance",
-        "Elevated resource consumption; degraded performance",
-        "Critical threshold; immediate risk of service termination",
-    ],
-    instructions="Assess system degradation level.",
-)
-
-print(rating.score)       # 1.89 (scale 0.0 to 2.0)
-print(rating.confidence)  # 0.78
-```
-
-### 4. Speculative Multi-Question Fan-Out (`von.system_one`)
-Evaluate multiple heterogeneous questions in a single forward pass without latency multiplication:
-
-```python
-import von
-
-state = {
-    "ticket_id": "INC-4091",
-    "customer_tier": "enterprise",
-    "message": "Payment gateway reports timeout on charge authorizations. Urgent.",
-}
-
-questions = {
-    "intent": von.choice(
-        instructions="What is the operational nature of this ticket?",
-        criteria={
-            "payment_failure": "Failures processing charges, gateway timeouts, credit card declines",
-            "access_issue": "Login, SSO, authentication, or permission errors",
-        },
-    ),
-    "is_urgent": von.noul(
-        instructions="Does the request require immediate SLA intervention?",
-    ),
-    "severity": von.score(
-        instructions="Rate the incident severity.",
-        criteria=["Low", "Medium", "High", "Critical"],
-    ),
-}
-
-resp = von.system_one(state=state, questions=questions)
-
-print(resp.answers["intent"].choice)     # 'payment_failure'
-print(resp.answers["is_urgent"].noul)    # 0.9204
-print(resp.answers["severity"].score)    # 2.81
-```
-
----
-
-## TypeScript / Node.js Usage
-
-```typescript
-import { VonClient, choice, noul, score } from "von-sdk";
-
-const client = new VonClient({ baseURL: "http://localhost:8000" });
-
-const { answers } = await client.systemOne({
-  state: { ticket: "Export button crashes settings page on Safari 17.2" },
-  questions: {
-    department: choice("Which team should handle this?", {
-      frontend: "UI, client-side scripts, browser compatibility",
-      billing: "Invoices, subscriptions, refunds",
-    }),
-    isUrgent: noul("Does this communicate production impact?"),
-    severity: score("Rate bug impact", ["Minor", "Moderate", "Critical"]),
-  },
-});
-
-console.log(answers.department.choice);     // "frontend"
-console.log(answers.department.confidence); // 0.89
-console.log(answers.isUrgent.noul);         // 0.12
-```
-
----
-
-## Production Workflow Presets
-
-Pre-packaged decision suites for high-frequency operational pipelines (`von.presets`):
-
-```python
-import von
-from von.presets import triage_preset, email_preset, moderation_preset, security_preset
-
-# Support ticket triage (intent, urgency, customer frustration, churn risk)
-resp = von.system_one(state=customer_payload, questions=triage_preset())
-
-# Inbound email security and routing (destination, spam/phishing check, priority score)
-resp = von.system_one(state=raw_email_body, questions=email_preset())
-
-# Trust & safety content moderation (policy violation, block decision, risk severity)
-resp = von.system_one(state=user_submitted_content, questions=moderation_preset())
-
-# Security event triage (anomaly type, active intrusion confirmation, incident severity)
-resp = von.system_one(state=audit_log_telemetry, questions=security_preset())
-```
-
----
-
-## Composable Decision Patterns
-
-High-level architectural patterns for agentic pipelines (`von.patterns`):
-
-```python
-from von.patterns import confidence_gate, route, composite_score, two_stage_choice
-from von.types import Choice
-
-# 1. Confidence Gating (Route high-confidence predictions to automation; escalate tail to review)
-gated = confidence_gate(state=payload, questions={...}, threshold=0.85)
-# Output: {"automatic": {...}, "escalate": {...}}
-
-# 2. Route Dispatch (Execute target callable based on categorical decision)
-route(
-    state=transaction_event,
-    question=Choice("Select dispute action", {"refund": "Refund", "escalate": "Escalate"}),
-    routes={"refund": process_refund, "escalate": notify_fraud_desk},
-)
-
-# 3. Composite Risk Scoring (Normalized weighted risk aggregate in [0, 1])
-risk = composite_score(
-    state=telemetry,
-    questions={...},
-    weights={"severity": 2.0, "is_threat": 3.0},
-)
-print(risk["score"])  # e.g. 0.9124
-
-# 4. Two-Stage Routing (Handles high-cardinality taxonomies >25 options in sub-50ms)
-taxonomy = {
-    "cloud": {"aws": "Amazon Web Services", "gcp": "Google Cloud", "azure": "Microsoft Azure"},
-    "database": {"postgres": "PostgreSQL", "mysql": "MySQL", "redis": "Redis"},
-}
-decision = two_stage_choice(state="Postgres replica lag exceeded limit", taxonomy=taxonomy)
-```
-
----
-
-## Server Deployment (`von serve`)
-
-Start the production-ready HTTP server compatible with the `/v1/systemone` specification:
+### Server
 
 ```bash
-# Launch server on port 8000
-von serve --host 0.0.0.0 --port 8000
+von serve --host 0.0.0.0 --port 8000                 # auto-selects cuda / mps / openvino:gpu / openvino:cpu / cpu
+curl -X POST localhost:8000/v1/systemone -H 'Content-Type: application/json' -d '{
+  "model": "von-1.2.0",
+  "state": {"error": "Disk volume /var/log at 98% capacity."},
+  "questions": {"needs_action": {"type": "noul", "instructions": "Does this require operational intervention?"}}
+}'
 ```
 
-### Wire Protocol Verification
-```bash
-curl -X POST http://localhost:8000/v1/systemone \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "von-1.2.0",
-    "state": { "error": "Disk volume /var/log at 98% capacity." },
-    "questions": {
-      "requires_intervention": {
-        "type": "noul",
-        "instructions": "Does this disk space condition require operational intervention?"
-      }
-    }
-  }'
-```
+### Container
 
----
+A CPU and a CUDA image are in [PR #12](https://github.com/wfzyx/von/pull/12); once it lands: `docker run -p 8000:8000 ghcr.io/wfzyx/von:cpu`. Until then build from the `Dockerfile` on that branch.
 
-## Training Data & Domain Coverage
+## Configuration
 
-Von is built on **ModernBERT-Large** (395M parameters, pretrained on 2 trillion tokens of general web text, technical literature, and code) and fine-tuned for high-speed, non-autoregressive decision making.
-
-### Fine-Tuning Corpus Composition
-The decision-scoring head and representation space are fine-tuned across a **~290,000-example balanced multi-domain corpus**:
-
-| Domain Cluster | Share | Representative Tasks & Coverage |
+| flag / env | default | effect |
 |---|---|---|
-| **Operational & Enterprise Workflow** | ~25% | IT support ticket triage, customer intent routing (Banking77), billing/refund dispute policies, warranty verification, e-commerce order exceptions. |
-| **Security, DevOps & Compliance** | ~20% | Credential & secret leak detection, SQL injection / payload screening, phishing analysis, commit intent classification, on-call alert routing, PII detection. |
-| **Safety, Policy & Moderation** | ~15% | Ad policy violations, Fair Housing Act compliance, travel expense policy limits, Terms of Service gating. |
-| **Linguistic & Content Semantics** | ~15% | Formality grading, grammar error taxonomies (spelling, syntax, agreement), sentiment analysis, reading level estimation. |
-| **Triage & Services** | ~10% | Clinical/symptom urgency triage, veterinary severity scoring, municipal 311 service routing, dietary restriction & allergen verification. |
-| **Adversarial Reasoning Anchor** | ~15% | Multi-task NLI reasoning (ANLI Rounds 1–3, WANLI) retained to anchor logical entailment and prevent catastrophic forgetting of general world logic. |
+| `--device` / `VON_DEVICE` | `auto` | `cuda`, `mps`, `openvino:gpu`, `openvino:cpu`, `cpu`. Auto prefers OpenVINO CPU over plain torch CPU. |
+| `--max-state-tokens N` / `VON_MAX_STATE_TOKENS` | 8192 | States longer than N tokens are middle-truncated (60 % head, 40 % tail) so question and options always fit the 8192 window. Truncated responses carry a `truncation` field and `X-Von-Truncated` / `Warning` headers. |
+| `--chains DIR` / `VON_CHAINS_DIR` | off | Enable chain-of-options (below). |
+| `VON_API_KEY` | unset | Bearer token required by the server when set (client falls back to `TYPESAFE_API_KEY`). |
+| `VON_MODEL_ID` | `wfzyx/von` | Hugging Face repo or local checkpoint directory. |
 
-### Domain Generalization & Out-of-Domain Tasks (e.g. Education, Academia)
+## Chain-of-options (experimental)
 
-- **How Von reasons:** Unlike generative LLMs that synthesize paragraphs, Von is an **in-context semantic verifier**. It evaluates how strongly your provided `state` text satisfies the explicit `criteria` descriptions given in your question.
-- **Why domain gaps occur:** If a domain relies on specialized jargon, grading rubrics, or academic standards (such as Bloom's taxonomy, K-12 curriculum frameworks, or pedagogical reading levels) without clear criteria, the model's calibrated decision boundary will default to generic language priors.
-- **Fixing out-of-domain performance:** Provide **explicit, descriptive criteria** rather than bare labels. For example, instead of asking for `["beginner", "advanced"]`, provide concrete operational definitions:
-  ```python
-  von.choice(
-      instructions="Classify student essay reading grade level.",
-      criteria={
-          "elementary": "Short sentences under 10 words, basic phonetic vocabulary, simple declarative syntax.",
-          "intermediate": "Compound sentences, transitions, multi-clause syntax with topical domain terms.",
-          "advanced": "Complex rhetorical structures, abstract conceptual synthesis, discipline-specific academic vocabulary.",
-      }
-  )
-  ```
-  Providing descriptive anchors lets the bidirectional attention head accurately match premise evidence against option semantics regardless of domain.
+Deterministic multi-step computation for temporal/numeric items, driven entirely by Von's own Choice decisions and zero generated tokens:
 
----
+1. a regex proposer lists candidate spans (dates, durations, time zones, amounts, percents, tables) — it never decides;
+2. Von picks which chain applies (or `none`) as a Choice over chain descriptions;
+3. Von binds each typed slot as a Choice over the proposed spans of that kind;
+4. a fixed operator library (`add_duration`, `in_zone`, `elapsed_hours`, `prorate`, `cumsum`, …) executes;
+5. the computed result is described in one sentence and the original question is asked about it.
 
-## Theoretical Homage
+Chains are TOML files (`src/von/chains/library/`: deadline+timezone, month-window/leap, proration, cumulative-vs-limit, elapsed-window). Enable with `von serve --chains src/von/chains/library`. Any routing miss, unbound slot or executor error falls back to the plain answer. Gate status: paired McNemar on the pooled 114-item numeric slice, reported in `PROGRESS.md`; off by default until it clears.
 
-Von is named in recognition of two foundational figures in the formalization of computation and decision theory:
+## Training and calibration
 
-1. **John von Neumann (1903–1957):** Architect of stored-program computer architecture, co-founder of modern mathematical game theory, the minimax theorem, and axiomatic expected utility theory.
-2. **Ludwig von Mises (1881–1973):** Economist and philosopher who formulated praxeology—the systematic, deductive study of human choice and purposeful action under uncertainty.
-
----
-
-## Academic References
-
-If utilizing Von in research or enterprise systems, please cite the underlying methodologies:
-
-```bibtex
-@article{von2026systemone,
-  title={Von: Non-Autoregressive System One Decision Modeling via Calibrated Bidirectional Representations},
-  author={Panisa, Victor},
-  year={2026},
-  url={https://github.com/wfzyx/von}
-}
-
-@article{deepmost2025rlcd,
-  title={Reinforcement Learning with Calibration Distribution for Non-Autoregressive Decision Modeling},
-  author={DeepMostInnovations},
-  journal={arXiv preprint arXiv:2503.23303},
-  year={2025}
-}
-
-@article{answerdotai2024modernbert,
-  title={ModernBERT: Bringing BERT into the Modern Era},
-  author={Answer.AI and LightOn},
-  year={2024},
-  url={https://huggingface.co/blog/modernbert}
-}
-```
-
----
+Von 1.2 is ModernBERT-large with an option-marker head, trained with a listwise softmax cross-entropy + Brier objective on ~63k operational decision items plus synthetic two-hop and numeric sets, with independent-options attention masking so option order cannot change the answer. Calibration is an input-conditioned temperature map fitted post hoc (`checkpoints/von-1.2/marker_calibration.json`). Every accuracy claim in this repo goes through `benchmarks/stat_gate.py` (paired exact McNemar + minimum detectable effect); results below the MDE are reported as UNRESOLVABLE, never as wins.
 
 ## License
 
-Apache-2.0. Open-source for academic, personal, and commercial deployment.
+Apache-2.0.
