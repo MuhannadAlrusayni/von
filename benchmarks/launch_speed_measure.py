@@ -169,6 +169,8 @@ curl -sf http://127.0.0.1:8000/health || (cat /opt/von/serve.log; exit 1)
 /opt/von/.venv/bin/python -m decision_index score --results /opt/di/runs/smoke/results.jsonl 2>&1 | tail -20
 aws s3 sync /opt/di/runs/smoke {s3_results}/di_{tag}/smoke/ --quiet
 
+# resume: pull a previous tag's checkpointed results so the runner skips finished rows
+{resume_sync}
 # periodic checkpoint upload so a failsafe shutdown loses nothing (resumable)
 ( while true; do sleep 900; aws s3 sync /opt/di/runs/von-1.3 {s3_results}/di_{tag}/von-1.3/ --quiet; done ) &
 /opt/von/.venv/bin/python -m decision_index pipeline --engine http --option base_url=http://127.0.0.1:8000 --option model=von-1.3 \\
@@ -191,6 +193,7 @@ def main():
     ap.add_argument("--failsafe-min", type=int, default=45)
     ap.add_argument("--di-commit", default="87d4650", help="apolinario/decision-index commit for --job decision_index")
     ap.add_argument("--disk-gb", type=int, default=40)
+    ap.add_argument("--resume-tag", default="", help="decision_index: resume from s3 di_<tag>/von-1.3 checkpoint")
     ap.add_argument("--public", default=os.path.expanduser("~/scratch/jevbench/datasets/public"))
     ap.add_argument("--skip-upload", action="store_true")
     a = ap.parse_args()
@@ -209,7 +212,9 @@ def main():
     with open(ud, "w") as f:
         fmt = dict(s3_results=S3_RESULTS, s3_src=S3_SRC, s3_ckpt=S3_CKPT, s3_public=S3_PUBLIC,
                    tag=tag, pip=m["pip"], device=m["device"], kind=m["kind"], hardware=m["hardware"], failsafe_min=a.failsafe_min,
-                   di_commit=a.di_commit)
+                   di_commit=a.di_commit,
+                   resume_sync=(f"mkdir -p /opt/di/runs/von-1.3 && aws s3 sync {S3_RESULTS}/di_{a.resume_tag}/von-1.3/ /opt/di/runs/von-1.3/ --quiet"
+                                if a.resume_tag else ""))
         f.write(USER_DATA.format(job=JOBS[a.job].format(**fmt), **fmt))
 
     iid = None
