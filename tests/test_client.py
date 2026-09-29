@@ -35,3 +35,15 @@ async def test_async_von_client_local():
         },
     )
     assert res.answers["service"].choice == "database"
+
+
+def test_choice_criteria_accepts_structured_descriptions():
+    """Wire format allows any JSON as an option description; Von renders it to text."""
+    from von.types import Choice, Noul
+    c = Choice(instructions="Best move?", criteria={
+        "c8e8": {"uci": "c8e8", "san": "Re8"}, "A": ["#ebf0ff", "#021e61"], "n": 3, "plain": "text", "none": None})
+    assert c.criteria["c8e8"] == '{"san": "Re8", "uci": "c8e8"}'
+    assert c.criteria["A"] == '["#ebf0ff", "#021e61"]'
+    assert c.criteria["n"] == "3" and c.criteria["plain"] == "text" and c.criteria["none"] is None
+    n = Noul(instructions="Hallucinated?", criteria={"true": {"means": "yes"}, "false": "no"})
+    assert n.criteria == {"true": '{"means": "yes"}', "false": "no"}

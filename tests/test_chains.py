@@ -267,3 +267,21 @@ def test_bindall_respects_model_call_budget():
         assert len(r.backend.asked) <= 3  # 2 bind calls + at most one arbitration
     finally:
         del os.environ["VON_CHAINS_MAX_CALLS"]
+
+
+def test_bindall_caches_state_only_phase_across_questions():
+    """A multi-question request binds once: the second question on the same
+    state costs zero bind calls (facts come from the per-state cache), and the
+    answer is identical."""
+    r = _bindall({"start": "2025-03-01", "end": "2025-03-31"})
+    state = "Annual fee is $1,200. Active from 2025-03-01 to 2025-03-31."
+    q1 = Choice(type="choice", instructions="Prorated fee?", criteria={"a": "$101.92", "b": "$100.00"})
+    a1, _ = r.run(state, q1)
+    n_after_first = len(r.backend.asked)
+    assert n_after_first > 0
+    a2, tr2 = r.run(state, Choice(type="choice", instructions="Prorated fee, again?", criteria={"x": "$101.92", "y": "$5"}))
+    assert len(r.backend.asked) == n_after_first  # no new bind calls
+    assert a1.choice == "a" and a2.choice == "x" and tr2.chain == "proration"
+    # a different state is not served from the cache
+    r.run(state.replace("1,200", "2,400"), q1)
+    assert len(r.backend.asked) > n_after_first

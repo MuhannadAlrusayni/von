@@ -22,6 +22,23 @@ def _stringify_instructions(v: Any) -> Any:
         return json.dumps(v, sort_keys=isinstance(v, dict))
     return v
 
+
+# Option descriptions get the same treatment: the wire format lets a criteria
+# value be any JSON (a chess move as {"uci", "san"}, a palette as a list of hex
+# colours, a number). None stays None (the key stands in for the description).
+def _stringify_criteria(v: Any) -> Any:
+    if not isinstance(v, dict):
+        return v
+    out = {}
+    for k, d in v.items():
+        if d is None or isinstance(d, str):
+            out[k] = d
+        elif isinstance(d, (dict, list)):
+            out[k] = json.dumps(d, sort_keys=isinstance(d, dict))
+        else:
+            out[k] = str(d)
+    return out
+
 class Noul(BaseModel):
     """A yes/no probability question."""
     type: Literal["noul"] = "noul"
@@ -31,7 +48,12 @@ class Noul(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _fold_legacy_criteria(cls, data: Any) -> Any:
-        if not isinstance(data, dict) or not any(k in data for k in _LEGACY_NOUL_CRITERIA):
+        if not isinstance(data, dict):
+            return data
+        if not any(k in data for k in _LEGACY_NOUL_CRITERIA):
+            if isinstance(data.get("criteria"), dict):
+                data = dict(data)
+                data["criteria"] = _stringify_criteria(data["criteria"])
             return data
         data = dict(data)
         criteria = dict(data.get("criteria") or {})
@@ -49,7 +71,7 @@ class Noul(BaseModel):
             DeprecationWarning,
             stacklevel=2,
         )
-        data["criteria"] = criteria or None
+        data["criteria"] = _stringify_criteria(criteria) or None
         return data
 
     @field_validator("instructions", mode="before")
@@ -68,6 +90,11 @@ class Choice(BaseModel):
     @classmethod
     def _coerce_instructions(cls, v: Any) -> Any:
         return _stringify_instructions(v)
+
+    @field_validator("criteria", mode="before")
+    @classmethod
+    def _coerce_criteria(cls, v: Any) -> Any:
+        return _stringify_criteria(v)
 
 
 class Score(BaseModel):

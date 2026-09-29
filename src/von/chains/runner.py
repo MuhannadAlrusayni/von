@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import glob
 import os
+from collections import OrderedDict
 import re
 import threading
 import tomllib
@@ -121,6 +122,12 @@ class ChainRunner:
         self.chains = load_chains(chains_dir)
         self.min_numerals = min_numerals
         self._local = threading.local()
+        # Binding and execution read only the state, never the question, so a
+        # multi-question request (17 clauses of one contract) computes its facts
+        # once. Small LRU keyed by state text; entries are immutable tuples.
+        self._facts_cache: "OrderedDict[str, tuple]" = OrderedDict()
+        self._facts_cache_size = int(os.environ.get("VON_CHAINS_CACHE", "64"))
+        self._cache_lock = threading.Lock()
 
     # --- recursion guard: sub-decisions must never re-enter the chain path --
     def active(self) -> bool:
@@ -216,17 +223,18 @@ class ChainRunner:
         except (KeyError, ValueError, IndexError):
             return None
 
-    def _run_bindall(self, state: str, q: Any, tr: Trace) -> Tuple[Optional[Any], Trace]:
-        """No routing. Every chain whose slots bind is executed; computed
-        facts are appended to the state and become spans for the next round
-        (fixpoint, bounded), so chains compose without composed definitions.
-        A chain whose value lands on an option answers through the matcher;
-        the model arbitrates only among grounded survivors, or reads the
-        state plus facts when nothing matched. Nothing reads the question."""
-        instructions = getattr(q, "instructions", "") or ""
+    def _facts_for(self, state: str) -> tuple:
+        """State-only phase of bindall: propose, bind, execute, compose.
+        Returns (facts, execs, trace_fragment); cached per state text."""
+        with self._cache_lock:
+            hit = self._facts_cache.get(state)
+            if hit is not None:
+                self._facts_cache.move_to_end(state)
+                return hit
         facts: List[Tuple[str, str]] = []       # (chain, provenance-carrying description)
+        execs: List[Tuple[str, Any, str]] = []  # (chain, computed value, description) for value chains
+        frag: Dict[str, Dict[str, Any]] = {"route_probs": {}, "bindings": {}, "values": {}}
         seen: set = set()                        # (chain, bindings) already executed
-        matched: Dict[str, Tuple[str, str]] = {}  # option key -> (chain, description)
         base_spans = propose(state)
         derived: List[Span] = []
         self._local.calls = 0
@@ -266,22 +274,43 @@ class ChainRunner:
                 prov = f"[{chain.name}: " + ", ".join(f"{k}={v}" for k, v in sub.bindings.items()) + "] "
                 facts.append((chain.name, prov + desc))
                 new_facts += 1
-                tr.route_probs[chain.name] = tr.route_probs.get(chain.name, 0.0) + 1.0
-                tr.bindings.update({f"r{rnd}.{chain.name}.{k}": v for k, v in sub.bindings.items()})
-                tr.values[f"r{rnd}.{chain.name}"] = {k: v for k, v in env.items() if k != "state" and not isinstance(v, Span)}
-                if chain.answer.get("mode") == "value" and isinstance(q, Choice):
-                    val = env.get(chain.answer.get("value", ""))
-                    hit = _match_any(val, q.criteria)
-                    if hit and hit not in matched:
-                        matched[hit] = (chain.name, prov + desc)
+                frag["route_probs"][chain.name] = frag["route_probs"].get(chain.name, 0.0) + 1.0
+                frag["bindings"].update({f"r{rnd}.{chain.name}.{k}": v for k, v in sub.bindings.items()})
+                frag["values"][f"r{rnd}.{chain.name}"] = {k: v for k, v in env.items() if k != "state" and not isinstance(v, Span)}
+                if chain.answer.get("mode") == "value":
+                    execs.append((chain.name, env.get(chain.answer.get("value", "")), prov + desc))
                 if len(facts) >= self.max_facts:
                     break
             if exhausted or new_facts == 0 or len(facts) >= self.max_facts:
                 break
+        out = (tuple(facts), tuple(execs), frag)
+        with self._cache_lock:
+            self._facts_cache[state] = out
+            while len(self._facts_cache) > self._facts_cache_size:
+                self._facts_cache.popitem(last=False)
+        return out
+
+    def _run_bindall(self, state: str, q: Any, tr: Trace) -> Tuple[Optional[Any], Trace]:
+        """No routing. Every chain whose slots bind is executed; computed
+        facts are appended to the state and become spans for the next round
+        (fixpoint, bounded), so chains compose without composed definitions.
+        A chain whose value lands on an option answers through the matcher;
+        the model arbitrates only among grounded survivors, or reads the
+        state plus facts when nothing matched. Nothing reads the question."""
+        instructions = getattr(q, "instructions", "") or ""
+        facts, execs, frag = self._facts_for(state)
+        tr.route_probs.update(frag["route_probs"])
+        tr.bindings.update(frag["bindings"])
+        tr.values.update(frag["values"])
+        matched: Dict[str, Tuple[str, str]] = {}  # option key -> (chain, description)
+        if isinstance(q, Choice):
+            for name, val, desc in execs:
+                hit = _match_any(val, q.criteria)
+                if hit and hit not in matched:
+                    matched[hit] = (name, desc)
         if not facts:
             tr.fallback = "bindall:nothing-executed"
             return None, tr
-
         if isinstance(q, Choice) and len(matched) == 1:
             (hit, (name, desc)), = matched.items()
             tr.chain, tr.description = name, desc
