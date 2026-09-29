@@ -58,11 +58,20 @@ def main():
     help="State longer than the window: middle-truncate with a warning (default) or refuse with HTTP 422 "
          "(env VON_ON_OVERFLOW). Use refuse under no-truncation benchmark rules.",
 )
+@click.option(
+    "--noul-decision",
+    type=click.Choice(["band", "raw"]),
+    default=None,
+    help="Noul P(yes): 'band' (default) commits every answer outside the 0.2..0.8 abstention band, "
+         "'raw' returns the calibrated posterior unchanged (env VON_NOUL_DECISION).",
+)
 def serve(host: str, port: int, backend: str, device: str, reload: bool, max_state_tokens: Optional[int],
-          chains: Optional[str], no_chains: bool, on_overflow: Optional[str]):
+          chains: Optional[str], no_chains: bool, on_overflow: Optional[str], noul_decision: Optional[str]):
+    """Start the Von System One HTTP server."""
     if on_overflow:
         os.environ["VON_ON_OVERFLOW"] = on_overflow
-    """Start the Von System One HTTP server."""
+    if noul_decision:
+        os.environ["VON_NOUL_DECISION"] = noul_decision
     os.environ["VON_BACKEND"] = backend
     if no_chains:
         os.environ["VON_CHAINS_DIR"] = "off"

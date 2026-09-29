@@ -121,6 +121,31 @@ def _validate_noul_prior(raw: object) -> Optional[Dict[str, float]]:
         return None
 
 
+def _noul_decide(p: float, edge: float, slope: float) -> float:
+    """Map a calibrated P(yes) to a committed decision probability.
+
+    The calibrated posterior sits near 0.5 on long or ambiguous states (the
+    input-conditioned temperature map flattens it), so a consumer that reads
+    P(yes) <= 0.2 as No, >= 0.8 as Yes and everything between as an
+    abstention (JevBench v1.5 Noul rule) records almost every answer as an
+    abstain. This piecewise-affine map keeps the argmax and the ordering, and
+    guarantees |p' - 0.5| >= edge - 0.5:
+
+        p >= 0.5:  p' = edge + slope * (p - 0.5)
+        p <  0.5:  p' = (1 - edge) - slope * (0.5 - p)
+
+    edge=0.5, slope=1 is the identity. Slope was chosen on jabr v2 Noul tasks
+    (never JevBench): 0 has the lowest ECE, 0.1 costs ~0.02 ECE and keeps the
+    map strictly monotone.
+    """
+    p = max(0.0, min(1.0, p))
+    if p >= 0.5:
+        out = edge + slope * (p - 0.5)
+    else:
+        out = (1.0 - edge) - slope * (0.5 - p)
+    return max(0.0, min(1.0, out))
+
+
 class _IndependentOptionsEncoder(torch.nn.Module):
     """Flat-tensor view of the encoder for tracing in independent_options mode.
 
@@ -340,6 +365,16 @@ class OptionMarkerBackend(BaseBackend):
         self.on_overflow = os.environ.get("VON_ON_OVERFLOW", "truncate").strip().lower()
         if self.on_overflow not in ("truncate", "refuse"):
             raise ValueError(f"VON_ON_OVERFLOW must be 'truncate' or 'refuse', got {self.on_overflow!r}")
+        # Noul decision rule (see _noul_decide). "band" (default) commits every
+        # answer outside the 0.2..0.8 abstention band; "raw" returns the
+        # calibrated posterior unchanged (pre-1.3.2 behaviour).
+        self.noul_decision = os.environ.get("VON_NOUL_DECISION", "band").strip().lower()
+        if self.noul_decision not in ("band", "raw"):
+            raise ValueError(f"VON_NOUL_DECISION must be 'band' or 'raw', got {self.noul_decision!r}")
+        self.noul_band_edge = float(os.environ.get("VON_NOUL_BAND_EDGE", "0.8"))
+        self.noul_band_slope = float(os.environ.get("VON_NOUL_BAND_SLOPE", "0.1"))
+        if not (0.5 <= self.noul_band_edge <= 1.0) or not (0.0 <= self.noul_band_slope <= 1.0):
+            raise ValueError("VON_NOUL_BAND_EDGE must be in [0.5, 1] and VON_NOUL_BAND_SLOPE in [0, 1]")
         self._trunc_local = threading.local()
         # Chain-of-options: on by default with the bundled library in bindall
         # mode (Von 1.3). VON_CHAINS_DIR=<dir> swaps the library, VON_CHAINS_DIR=off
@@ -613,7 +648,8 @@ class OptionMarkerBackend(BaseBackend):
     ) -> NoulAnswer:
         chained = self._maybe_chain(state_text, q)
         if chained is not None:
-            return chained
+            return self._commit_noul(chained)
+
 
         model = self._get_model()
         tok = model.tokenizer
@@ -681,7 +717,13 @@ class OptionMarkerBackend(BaseBackend):
             probs = torch.softmax(scaled, dim=-1).cpu().tolist()
 
         prob_true = round(max(0.0, min(1.0, probs[0])), 4)
-        return NoulAnswer(noul=prob_true)
+        return self._commit_noul(NoulAnswer(noul=prob_true))
+
+    def _commit_noul(self, ans: NoulAnswer) -> NoulAnswer:
+        if self.noul_decision == "raw":
+            return ans
+        ans.noul = round(_noul_decide(float(ans.noul), self.noul_band_edge, self.noul_band_slope), 4)
+        return ans
 
     def evaluate_score(
         self,
