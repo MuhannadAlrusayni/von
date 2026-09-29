@@ -156,6 +156,14 @@ def build_option_invariant_position_ids(
     return position_ids
 
 
+
+def _neutralise(text: str, *specials: str) -> str:
+    """Break any special-token literal in user text with a zero-width joiner."""
+    for sp in specials:
+        if sp and sp in text:
+            text = text.replace(sp, sp[0] + "\u200d" + sp[1:])
+    return text
+
 class OptionMarkerModel(nn.Module):
     """ModernBERT decision model with single-pass option-marker scoring."""
 
@@ -218,10 +226,17 @@ class OptionMarkerModel(nn.Module):
         state: str,
         question: str,
         options: List[str],
-    ) -> str:
+    ) -> str:  # noqa: D401  (see _neutralise)
         """Packs state, question, and candidate options into an option-marker string."""
         mask = self.tokenizer.mask_token
         sep = self.tokenizer.sep_token
+        # User text must not be able to forge structure: a tool doc that says
+        # "[MASK]" would add a phantom option marker (seen on ToolRet), and a
+        # "[SEP]" would split the prefix. Neutralise the literals with a
+        # zero-width join so the visible text is unchanged but the tokenizer no
+        # longer maps them to the special ids.
+        state, question = _neutralise(state, mask, sep), _neutralise(question, mask, sep)
+        options = [_neutralise(o, mask, sep) for o in options]
         prefix = f"{question} {state}".strip() if question else state.strip()
         opts_packed = " ".join(f"{mask} {opt.strip()}" for opt in options)
         packed = f"{prefix} {sep} {opts_packed}"

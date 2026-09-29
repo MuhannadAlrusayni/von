@@ -407,8 +407,8 @@ class OptionMarkerBackend(BaseBackend):
             return state_text
         if self.on_overflow == "refuse":
             raise ValueError(
-                f"state of {len(ids)} tokens exceeds the {limit}-token context window "
-                f"(model window {window}, max_state_tokens {self.max_state_tokens}); "
+                f"request of {len(ids) + reserve} tokens (state {len(ids)}, question+options {reserve}) "
+                f"exceeds the {window}-token context window (max_state_tokens {self.max_state_tokens}); "
                 "refusing rather than truncating (VON_ON_OVERFLOW=refuse)"
             )
         head = int(limit * 0.6)
@@ -578,6 +578,8 @@ class OptionMarkerBackend(BaseBackend):
         self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
+        if len(pos_list) != len(descriptions):
+            raise RuntimeError(f"option-marker count {len(pos_list)} != options {len(descriptions)}; packing is corrupt")
 
         with torch.no_grad():
             batch_logits = model(
@@ -634,6 +636,8 @@ class OptionMarkerBackend(BaseBackend):
         self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
+        if len(pos_list) != len(descriptions):
+            raise RuntimeError(f"option-marker count {len(pos_list)} != options {len(descriptions)}; packing is corrupt")
 
         with torch.no_grad():
             batch_logits = model(
@@ -721,6 +725,8 @@ class OptionMarkerBackend(BaseBackend):
         self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
+        if len(pos_list) != len(descriptions):
+            raise RuntimeError(f"option-marker count {len(pos_list)} != options {len(descriptions)}; packing is corrupt")
 
         with torch.no_grad():
             batch_logits = model(
