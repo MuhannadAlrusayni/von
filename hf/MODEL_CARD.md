@@ -84,7 +84,7 @@ weights under the new mask and recovers 1.1's accuracy on every public tier.
 ## Usage
 
 ```bash
-pip install "von-sdk>=1.3.4"
+pip install "von-sdk>=1.3.5"
 ```
 
 ```python
