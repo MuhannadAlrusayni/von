@@ -3,7 +3,7 @@
 import json
 import os
 import sys
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 import click
 import uvicorn
 
@@ -37,9 +37,48 @@ def main():
 )
 @click.option("--device", default="auto", help="Compute device: 'auto', 'cuda', 'rocm', 'mps', 'openvino', 'dml', 'cpu'.")
 @click.option("--reload", is_flag=True, default=False, help="Enable auto-reload.")
-def serve(host: str, port: int, backend: str, device: str, reload: bool):
+@click.option(
+    "--max-state-tokens",
+    default=None,
+    type=int,
+    help="Middle-truncate states longer than this many tokens (env VON_MAX_STATE_TOKENS). "
+         "Default 8192 = the encoder window; lower it for a hard latency ceiling.",
+)
+@click.option(
+    "--chains",
+    default=None,
+    type=click.Path(exists=True, file_okay=False),
+    help="Directory of TOML chain-of-options definitions (env VON_CHAINS_DIR). Default: the bundled library.",
+)
+@click.option("--no-chains", is_flag=True, default=False, help="Disable chain-of-options (VON_CHAINS_DIR=off).")
+@click.option(
+    "--on-overflow",
+    type=click.Choice(["truncate", "refuse"]),
+    default=None,
+    help="State longer than the window: middle-truncate with a warning (default) or refuse with HTTP 422 "
+         "(env VON_ON_OVERFLOW). Use refuse under no-truncation benchmark rules.",
+)
+@click.option(
+    "--noul-decision",
+    type=click.Choice(["band", "raw"]),
+    default=None,
+    help="Noul P(yes): 'band' (default) commits every answer outside the 0.2..0.8 abstention band, "
+         "'raw' returns the calibrated posterior unchanged (env VON_NOUL_DECISION).",
+)
+def serve(host: str, port: int, backend: str, device: str, reload: bool, max_state_tokens: Optional[int],
+          chains: Optional[str], no_chains: bool, on_overflow: Optional[str], noul_decision: Optional[str]):
     """Start the Von System One HTTP server."""
+    if on_overflow:
+        os.environ["VON_ON_OVERFLOW"] = on_overflow
+    if noul_decision:
+        os.environ["VON_NOUL_DECISION"] = noul_decision
     os.environ["VON_BACKEND"] = backend
+    if no_chains:
+        os.environ["VON_CHAINS_DIR"] = "off"
+    elif chains:
+        os.environ["VON_CHAINS_DIR"] = chains
+    if max_state_tokens is not None:
+        os.environ["VON_MAX_STATE_TOKENS"] = str(max_state_tokens)
     if device and device != "auto":
         os.environ["VON_DEVICE"] = device
     dev_obj = _detect_device(device)
@@ -202,6 +241,37 @@ def eval(request_file: str):
 
     resp = api_system_one(state=state, questions=questions, model=model)
     click.echo(json.dumps(resp.model_dump(), indent=2))
+
+
+@main.command()
+@click.argument("labels", type=click.Path(exists=True, dir_okay=False))
+@click.option("--out", default=None,
+              help="Where to write marker_calibration.json (default: <checkpoint>/marker_calibration.json, "
+                   "which the backend prefers over the shipped file).")
+@click.option("--checkpoint", default=None, help="Checkpoint directory (default: the one `von serve` would use).")
+@click.option("--device", default="cpu", help="Compute device; CPU is fine, this is inference only.")
+@click.option("--folds", default=5, type=int, show_default=True, help="Cross-validation folds for scalar-vs-map choice.")
+@click.option("--seed", default=0, type=int, show_default=True)
+def calibrate(labels: str, out: Optional[str], checkpoint: Optional[str], device: str, folds: int, seed: int):
+    """Refit confidence on your own labels; frozen weights, no GPU.
+
+    LABELS is JSON lines of {state, question:{type, instructions, criteria}, gold}.
+    Temperature never changes an answer, only how sure Von claims to be.
+    """
+    from von.backends.option_marker_backend import OptionMarkerBackend
+    from von.calibrate import run
+
+    if checkpoint is None:
+        checkpoint = OptionMarkerBackend(device=device).checkpoint_dir
+    if out is None:
+        out = os.path.join(checkpoint, "marker_calibration.json")
+    try:
+        written = run(labels, out, checkpoint, device=device, folds=folds, seed=seed, log=lambda m: click.echo(m, err=True))
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    click.echo(json.dumps({"out": out, "calibration_map": written["calibration_map"],
+                           "report": written["calibration_report"]}, indent=2))
 
 
 if __name__ == "__main__":

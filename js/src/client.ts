@@ -17,7 +17,7 @@ import { choice, noul, score } from "./primitives.js";
  * server always stamps responses with the version it actually served, so this
  * is a request hint rather than a selector.
  */
-export const VON_MODEL = "von-1.1.0";
+export const VON_MODEL = "von-1.3.0";
 
 export class VonError extends Error {
   public status?: number;

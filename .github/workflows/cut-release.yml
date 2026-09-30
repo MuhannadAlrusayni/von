@@ -1,45 +1,47 @@
 name: Cut a Release
 
-# Single entry point for shipping a version: verifies pyproject.toml already
-# carries the target version, tags it, creates a proper GitHub Release (a
-# real Release object with a rendered title and body -- a bare `git tag &&
-# git push` only leaves a lightweight tag, which GitHub shows as a small grey
-# commit-message blurb on the tags page, not a Release), and then explicitly
-# dispatches publish-pypi.yml.
+# The single release pipeline. Every publish surface hangs off this one run
+# with `needs`, so a release is either complete or visibly failed -- no more
+# "PyPI went out, npm quietly stayed three versions behind".
 #
-# That last step is not automatic: a tag pushed here using the default
-# GITHUB_TOKEN does NOT fire publish-pypi.yml's `on: push: tags` trigger --
-# GitHub blocks GITHUB_TOKEN-authored events from starting new workflow runs
-# to prevent infinite chains. workflow_dispatch is explicitly exempted from
-# that restriction, so this workflow calls publish-pypi.yml directly instead
-# of relying on the tag push to cascade into it.
+#   bump    -- scripts/bump_version.py rewrites every version site
+#              (pyproject, __init__, uv.lock, js/package.json, VON_VERSION,
+#              VON_MODEL_ID, js VON_MODEL, hf/MODEL_CARD.md), commits
+#              "version: X.Y.Z" to master if anything changed, and
+#              scripts/check_release.py proves they all agree. No-op if the
+#              tree already carries the version.
+#   test    -- full pytest + bun test on the bumped commit.
+#   tag     -- annotated tag on the bumped commit + GitHub Release.
+#   pypi    -- publish-pypi.yml (workflow_call, OIDC trusted publishing)
+#   npm     -- publish-npm.yml  (workflow_call, OIDC provenance)
+#   hf-card -- sync-hf-card.yml (model card -> huggingface.co/wfzyx/von)
+#   verify  -- registries actually serve the version.
+#
+# To release:  gh workflow run cut-release.yml -f version=X.Y.Z
+# (or Actions -> "Cut a Release" -> Run workflow). Nothing to edit by hand.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, matching pyproject.toml (e.g. 1.2.2, no leading v)"
+        description: "Version to release (e.g. 1.3.2, no leading v)"
         required: true
 
+concurrency:
+  group: cut-release
+  cancel-in-progress: false
+
 jobs:
-  release:
+  bump:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: master
           fetch-depth: 0
-
-      - name: Verify pyproject.toml matches the requested version
-        run: |
-          set -euo pipefail
-          PROJECT=$(grep -m1 '^version' pyproject.toml | sed -E 's/.*"(.*)".*/\1/')
-          if [ "$PROJECT" != "${{ inputs.version }}" ]; then
-            echo "::error::pyproject.toml is $PROJECT, requested release is ${{ inputs.version }}. Bump and commit pyproject.toml (and src/von/__init__.py) on master first, then re-run this workflow."
-            exit 1
-          fi
-
       - name: Refuse to re-cut an existing tag
         run: |
           set -euo pipefail
@@ -47,13 +49,60 @@ jobs:
             echo "::error::Tag v${{ inputs.version }} already exists."
             exit 1
           fi
+      - name: Bump every version site
+        run: python3 scripts/bump_version.py "${{ inputs.version }}"
+      - name: Version lockstep
+        run: python3 scripts/check_release.py --expect "${{ inputs.version }}"
+      - name: Commit the bump (no-op if already at this version)
+        id: commit
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "tree already at ${{ inputs.version }}; nothing to commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "version: ${{ inputs.version }}"
+            git push origin HEAD:master
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+  test:
+    needs: bump
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump.outputs.sha }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --extra dev
+      - name: pytest
+        run: uv run pytest -q
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: bun test
+        working-directory: js
+        run: bun install --frozen-lockfile && bun run build && bun test
+
+  tag:
+    needs: [bump, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.bump.outputs.sha }}
+          fetch-depth: 0
       - name: Create and push the tag
         run: |
           set -euo pipefail
-          git tag "v${{ inputs.version }}" "${{ github.sha }}"
+          git tag "v${{ inputs.version }}" "${{ needs.bump.outputs.sha }}"
           git push origin "v${{ inputs.version }}"
-
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -64,18 +113,58 @@ jobs:
             --verify-tag \
             --generate-notes
 
-      - name: Dispatch the PyPI publish (not a dry run)
-        env:
-          GH_TOKEN: ${{ github.token }}
+  pypi:
+    needs: [bump, tag]
+    uses: ./.github/workflows/publish-pypi.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      version: ${{ inputs.version }}
+      dry_run: false
+      ref: ${{ needs.bump.outputs.sha }}
+
+  npm:
+    needs: [bump, tag]
+    uses: ./.github/workflows/publish-npm.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      version: ${{ inputs.version }}
+      dry_run: false
+      ref: ${{ needs.bump.outputs.sha }}
+
+  hf-card:
+    needs: [bump, tag]
+    uses: ./.github/workflows/sync-hf-card.yml
+    secrets: inherit
+    with:
+      ref: ${{ needs.bump.outputs.sha }}
+
+  verify:
+    needs: [pypi, npm, hf-card]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Registries serve ${{ inputs.version }}
         run: |
           set -euo pipefail
-          gh workflow run publish-pypi.yml --ref "v${{ inputs.version }}" -f dry_run=false
-
-      - name: Summary
-        run: |
+          V="${{ inputs.version }}"
+          for i in $(seq 1 12); do
+            PY=$(curl -s https://pypi.org/pypi/von-sdk/json | python3 -c 'import json,sys;print(json.load(sys.stdin)["info"]["version"])' || true)
+            NPM=$(npm view von-sdk version 2>/dev/null || true)
+            HF=$(curl -fsSL -H 'Cache-Control: no-cache' https://huggingface.co/wfzyx/von/resolve/main/README.md | grep -m1 -oE 'von-sdk>=[0-9.]+' | cut -d= -f3 || true)
+            echo "attempt $i: pypi=$PY npm=$NPM hf=$HF"
+            [ "$PY" = "$V" ] && [ "$NPM" = "$V" ] && [ "$HF" = "$V" ] && break
+            sleep 20
+          done
+          [ "$PY" = "$V" ] || { echo "::error::PyPI serves $PY, expected $V"; exit 1; }
+          [ "$NPM" = "$V" ] || { echo "::error::npm serves $NPM, expected $V"; exit 1; }
+          [ "$HF" = "$V" ] || { echo "::error::HF model card pins von-sdk>=$HF, expected $V"; exit 1; }
           {
-            echo "### Cut v${{ inputs.version }}"
-            echo ""
-            echo "- Tag and GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.version }}"
-            echo "- PyPI publish dispatched (workflow_dispatch, dry_run=false): https://github.com/${{ github.repository }}/actions/workflows/publish-pypi.yml"
+            echo "### Released v$V"
+            echo "- https://github.com/${{ github.repository }}/releases/tag/v$V"
+            echo "- https://pypi.org/project/von-sdk/$V/"
+            echo "- https://www.npmjs.com/package/von-sdk/v/$V"
+            echo "- https://huggingface.co/wfzyx/von"
           } >> "$GITHUB_STEP_SUMMARY"

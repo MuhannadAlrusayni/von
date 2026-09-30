@@ -1,0 +1,942 @@
+{
+  "system": "von-395m",
+  "checkpoint": "von-1.2",
+  "endpoint_kind": "gpu",
+  "hardware": "AWS g5.xlarge (1x NVIDIA A10G), cuda",
+  "device": "cuda",
+  "measured_where": "serial HTTP client on the same host, model loaded and warmed before timing",
+  "run": "serial 72-decision standard run (public has no judge tier)",
+  "python": "3.12.14",
+  "speed": {
+    "p50_s_raw": 0.022564965000015036,
+    "p95_s_raw": 0.02306184185001712,
+    "p50_s_adjusted": 0.19512993000003007,
+    "p95_s_adjusted": 0.19612368370003425,
+    "adjustment": "x2 + 0.15 s (JevBench self-hosted assumption)",
+    "score": 94.1714606944434,
+    "hard_tier_p50_s": 0.45206269700003077,
+    "hard_tier_p95_s": 6.634734254000023
+  },
+  "jev_class_latency_line": {
+    "adjusted_p50_max_s": 1.3,
+    "raw_p50_max_s": 0.575,
+    "passes": true
+  },
+  "per_item": [
+    {
+      "id": "original-policy-01-0",
+      "tier": "standard",
+      "seconds": 0.02278854099995442
+    },
+    {
+      "id": "original-policy-01-1",
+      "tier": "standard",
+      "seconds": 0.022600771999975677
+    },
+    {
+      "id": "original-policy-02-0",
+      "tier": "standard",
+      "seconds": 0.022265325999967445
+    },
+    {
+      "id": "original-policy-02-1",
+      "tier": "standard",
+      "seconds": 0.11344222899998613
+    },
+    {
+      "id": "original-policy-03-0",
+      "tier": "standard",
+      "seconds": 0.02320905100003756
+    },
+    {
+      "id": "original-policy-03-1",
+      "tier": "standard",
+      "seconds": 0.02288029499999311
+    },
+    {
+      "id": "original-policy-04-0",
+      "tier": "standard",
+      "seconds": 0.022744687999988855
+    },
+    {
+      "id": "original-policy-04-1",
+      "tier": "standard",
+      "seconds": 0.02271763800001736
+    },
+    {
+      "id": "original-policy-05-0",
+      "tier": "standard",
+      "seconds": 0.022715366999989328
+    },
+    {
+      "id": "original-policy-05-1",
+      "tier": "standard",
+      "seconds": 0.02272205799999938
+    },
+    {
+      "id": "original-policy-06-0",
+      "tier": "standard",
+      "seconds": 0.022782269999993332
+    },
+    {
+      "id": "original-policy-06-1",
+      "tier": "standard",
+      "seconds": 0.022446954000031383
+    },
+    {
+      "id": "original-intent-01-0",
+      "tier": "standard",
+      "seconds": 0.14588083600000346
+    },
+    {
+      "id": "original-intent-01-1",
+      "tier": "standard",
+      "seconds": 0.02339681999995946
+    },
+    {
+      "id": "original-intent-02-0",
+      "tier": "standard",
+      "seconds": 0.02258321099998284
+    },
+    {
+      "id": "original-intent-02-1",
+      "tier": "standard",
+      "seconds": 0.02238550099997383
+    },
+    {
+      "id": "original-intent-03-0",
+      "tier": "standard",
+      "seconds": 0.022507877000009557
+    },
+    {
+      "id": "original-intent-03-1",
+      "tier": "standard",
+      "seconds": 0.022683165999978883
+    },
+    {
+      "id": "original-intent-04-0",
+      "tier": "standard",
+      "seconds": 0.021865955999999187
+    },
+    {
+      "id": "original-intent-04-1",
+      "tier": "standard",
+      "seconds": 0.02251275800000485
+    },
+    {
+      "id": "original-intent-05-0",
+      "tier": "standard",
+      "seconds": 0.0225792800000022
+    },
+    {
+      "id": "original-intent-05-1",
+      "tier": "standard",
+      "seconds": 0.022557958999982475
+    },
+    {
+      "id": "original-intent-06-0",
+      "tier": "standard",
+      "seconds": 0.022762829999976475
+    },
+    {
+      "id": "original-intent-06-1",
+      "tier": "standard",
+      "seconds": 0.022597211000004336
+    },
+    {
+      "id": "original-ordinal-01-0",
+      "tier": "standard",
+      "seconds": 0.022811790999980985
+    },
+    {
+      "id": "original-ordinal-01-1",
+      "tier": "standard",
+      "seconds": 0.022485926000001655
+    },
+    {
+      "id": "original-ordinal-02-0",
+      "tier": "standard",
+      "seconds": 0.02260242200003404
+    },
+    {
+      "id": "original-ordinal-02-1",
+      "tier": "standard",
+      "seconds": 0.022366950999980872
+    },
+    {
+      "id": "original-ordinal-03-0",
+      "tier": "standard",
+      "seconds": 0.02243184299999257
+    },
+    {
+      "id": "original-ordinal-03-1",
+      "tier": "standard",
+      "seconds": 0.022410622999984753
+    },
+    {
+      "id": "original-ordinal-04-0",
+      "tier": "standard",
+      "seconds": 0.02251464699997996
+    },
+    {
+      "id": "original-ordinal-04-1",
+      "tier": "standard",
+      "seconds": 0.022037814999976035
+    },
+    {
+      "id": "original-ordinal-05-0",
+      "tier": "standard",
+      "seconds": 0.02257465000002412
+    },
+    {
+      "id": "original-ordinal-05-1",
+      "tier": "standard",
+      "seconds": 0.022420812999996542
+    },
+    {
+      "id": "original-ordinal-06-0",
+      "tier": "standard",
+      "seconds": 0.02247457599997915
+    },
+    {
+      "id": "original-ordinal-06-1",
+      "tier": "standard",
+      "seconds": 0.022757069000022057
+    },
+    {
+      "id": "original-extraction-01-0",
+      "tier": "standard",
+      "seconds": 0.02252230800002053
+    },
+    {
+      "id": "original-extraction-01-1",
+      "tier": "standard",
+      "seconds": 0.022336118999987775
+    },
+    {
+      "id": "original-extraction-02-0",
+      "tier": "standard",
+      "seconds": 0.022447243999977218
+    },
+    {
+      "id": "original-extraction-02-1",
+      "tier": "standard",
+      "seconds": 0.022429192999993575
+    },
+    {
+      "id": "original-extraction-03-0",
+      "tier": "standard",
+      "seconds": 0.022563149999996313
+    },
+    {
+      "id": "original-extraction-03-1",
+      "tier": "standard",
+      "seconds": 0.022337079000010363
+    },
+    {
+      "id": "original-extraction-04-0",
+      "tier": "standard",
+      "seconds": 0.022333247999995365
+    },
+    {
+      "id": "original-extraction-04-1",
+      "tier": "standard",
+      "seconds": 0.02257406000001083
+    },
+    {
+      "id": "original-extraction-05-0",
+      "tier": "standard",
+      "seconds": 0.022793301000035626
+    },
+    {
+      "id": "original-extraction-05-1",
+      "tier": "standard",
+      "seconds": 0.0222898270000087
+    },
+    {
+      "id": "original-extraction-06-0",
+      "tier": "standard",
+      "seconds": 0.022429353999996238
+    },
+    {
+      "id": "original-extraction-06-1",
+      "tier": "standard",
+      "seconds": 0.022245373999965068
+    },
+    {
+      "id": "original-adequacy-01-0",
+      "tier": "standard",
+      "seconds": 0.02257251099996438
+    },
+    {
+      "id": "original-adequacy-01-1",
+      "tier": "standard",
+      "seconds": 0.022382921000030365
+    },
+    {
+      "id": "original-adequacy-02-0",
+      "tier": "standard",
+      "seconds": 0.022385450999991008
+    },
+    {
+      "id": "original-adequacy-02-1",
+      "tier": "standard",
+      "seconds": 0.02233439899998757
+    },
+    {
+      "id": "original-adequacy-03-0",
+      "tier": "standard",
+      "seconds": 0.02238228099997741
+    },
+    {
+      "id": "original-adequacy-03-1",
+      "tier": "standard",
+      "seconds": 0.0227257980000104
+    },
+    {
+      "id": "original-adequacy-04-0",
+      "tier": "standard",
+      "seconds": 0.02256678000003376
+    },
+    {
+      "id": "original-adequacy-04-1",
+      "tier": "standard",
+      "seconds": 0.022266464999972868
+    },
+    {
+      "id": "original-adequacy-05-0",
+      "tier": "standard",
+      "seconds": 0.02208260700001574
+    },
+    {
+      "id": "original-adequacy-05-1",
+      "tier": "standard",
+      "seconds": 0.022161110000013196
+    },
+    {
+      "id": "original-adequacy-06-0",
+      "tier": "standard",
+      "seconds": 0.02266159499998821
+    },
+    {
+      "id": "original-adequacy-06-1",
+      "tier": "standard",
+      "seconds": 0.02239798199997267
+    },
+    {
+      "id": "original-routing-01-0",
+      "tier": "standard",
+      "seconds": 0.02273480799999561
+    },
+    {
+      "id": "original-routing-01-1",
+      "tier": "standard",
+      "seconds": 0.02270886700000574
+    },
+    {
+      "id": "original-routing-02-0",
+      "tier": "standard",
+      "seconds": 0.02294139800000039
+    },
+    {
+      "id": "original-routing-02-1",
+      "tier": "standard",
+      "seconds": 0.022629622999943422
+    },
+    {
+      "id": "original-routing-03-0",
+      "tier": "standard",
+      "seconds": 0.022760319000042273
+    },
+    {
+      "id": "original-routing-03-1",
+      "tier": "standard",
+      "seconds": 0.022808671999996477
+    },
+    {
+      "id": "original-routing-04-0",
+      "tier": "standard",
+      "seconds": 0.022724158000016814
+    },
+    {
+      "id": "original-routing-04-1",
+      "tier": "standard",
+      "seconds": 0.0227214280000112
+    },
+    {
+      "id": "original-routing-05-0",
+      "tier": "standard",
+      "seconds": 0.021820103999971252
+    },
+    {
+      "id": "original-routing-05-1",
+      "tier": "standard",
+      "seconds": 0.02246871500000225
+    },
+    {
+      "id": "original-routing-06-0",
+      "tier": "standard",
+      "seconds": 0.021854765999989922
+    },
+    {
+      "id": "original-routing-06-1",
+      "tier": "standard",
+      "seconds": 0.02265025400004106
+    },
+    {
+      "id": "hard-opus-a-long_policy-01",
+      "tier": "hard",
+      "seconds": 9.05158609800003
+    },
+    {
+      "id": "hard-opus-a-long_policy-04",
+      "tier": "hard",
+      "seconds": 4.5988530829999945
+    },
+    {
+      "id": "hard-opus-a-long_policy-08",
+      "tier": "hard",
+      "seconds": 4.274892876000024
+    },
+    {
+      "id": "hard-opus-a-long_policy-09",
+      "tier": "hard",
+      "seconds": 4.471954203999985
+    },
+    {
+      "id": "hard-opus-a-long_policy-11",
+      "tier": "hard",
+      "seconds": 4.01564705100003
+    },
+    {
+      "id": "hard-opus-a-long_policy-13",
+      "tier": "hard",
+      "seconds": 4.429319258000021
+    },
+    {
+      "id": "hard-opus-a-long_policy-17",
+      "tier": "hard",
+      "seconds": 4.249736703000053
+    },
+    {
+      "id": "hard-opus-a-long_policy-19",
+      "tier": "hard",
+      "seconds": 3.931652971999995
+    },
+    {
+      "id": "hard-opus-a-probability-03",
+      "tier": "hard",
+      "seconds": 0.5435509499999966
+    },
+    {
+      "id": "hard-opus-a-probability-04",
+      "tier": "hard",
+      "seconds": 0.07918307399995683
+    },
+    {
+      "id": "hard-opus-a-probability-07",
+      "tier": "hard",
+      "seconds": 1.4403439060000096
+    },
+    {
+      "id": "hard-opus-a-probability-08",
+      "tier": "hard",
+      "seconds": 0.13771893400002
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.6066684780000173
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-06",
+      "tier": "hard",
+      "seconds": 0.1097215909999818
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-07",
+      "tier": "hard",
+      "seconds": 1.2679802569999765
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-09",
+      "tier": "hard",
+      "seconds": 0.6404393930000083
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-12",
+      "tier": "hard",
+      "seconds": 0.7069586900000218
+    },
+    {
+      "id": "hard-opus-b-ambiguous-02",
+      "tier": "hard",
+      "seconds": 0.6277907560000244
+    },
+    {
+      "id": "hard-opus-b-ambiguous-03",
+      "tier": "hard",
+      "seconds": 0.6198605510000448
+    },
+    {
+      "id": "hard-opus-b-ambiguous-07",
+      "tier": "hard",
+      "seconds": 0.11267706399996769
+    },
+    {
+      "id": "hard-opus-b-ambiguous-09",
+      "tier": "hard",
+      "seconds": 0.759722838000016
+    },
+    {
+      "id": "hard-opus-b-ambiguous-10",
+      "tier": "hard",
+      "seconds": 0.03764815300002056
+    },
+    {
+      "id": "hard-opus-b-ambiguous-11",
+      "tier": "hard",
+      "seconds": 0.03702368199998318
+    },
+    {
+      "id": "hard-opus-b-ambiguous-13",
+      "tier": "hard",
+      "seconds": 0.6631839890000037
+    },
+    {
+      "id": "hard-opus-b-multi_hop-03",
+      "tier": "hard",
+      "seconds": 5.710502037999959
+    },
+    {
+      "id": "hard-opus-b-multi_hop-04",
+      "tier": "hard",
+      "seconds": 4.186628920000032
+    },
+    {
+      "id": "hard-opus-b-multi_hop-05",
+      "tier": "hard",
+      "seconds": 4.323146129000008
+    },
+    {
+      "id": "hard-opus-b-multi_hop-07",
+      "tier": "hard",
+      "seconds": 4.30704356199999
+    },
+    {
+      "id": "hard-opus-b-multi_hop-08",
+      "tier": "hard",
+      "seconds": 3.7294503489999897
+    },
+    {
+      "id": "hard-opus-b-probability-01",
+      "tier": "hard",
+      "seconds": 2.7376157420000027
+    },
+    {
+      "id": "hard-opus-b-probability-02",
+      "tier": "hard",
+      "seconds": 0.6387301870000215
+    },
+    {
+      "id": "hard-opus-b-probability-03",
+      "tier": "hard",
+      "seconds": 0.4057474780000234
+    },
+    {
+      "id": "hard-opus-b-probability-04",
+      "tier": "hard",
+      "seconds": 0.6701781319999895
+    },
+    {
+      "id": "hard-opus-b-probability-06",
+      "tier": "hard",
+      "seconds": 1.265394237999999
+    },
+    {
+      "id": "hard-opus-b-tradeoff-01",
+      "tier": "hard",
+      "seconds": 1.0897706410000296
+    },
+    {
+      "id": "hard-opus-b-tradeoff-03",
+      "tier": "hard",
+      "seconds": 0.9532186779999847
+    },
+    {
+      "id": "hard-opus-b-tradeoff-06",
+      "tier": "hard",
+      "seconds": 1.0113685989999794
+    },
+    {
+      "id": "hard-opus-b-tradeoff-07",
+      "tier": "hard",
+      "seconds": 0.8167925929999456
+    },
+    {
+      "id": "hard-opus-b-tradeoff-08",
+      "tier": "hard",
+      "seconds": 0.7187384970000039
+    },
+    {
+      "id": "hard-opus-b-tradeoff-12",
+      "tier": "hard",
+      "seconds": 0.6817934250000235
+    },
+    {
+      "id": "hard-opus-c-long_policy-02",
+      "tier": "hard",
+      "seconds": 7.299453496000012
+    },
+    {
+      "id": "hard-opus-c-long_policy-03",
+      "tier": "hard",
+      "seconds": 7.540984536999986
+    },
+    {
+      "id": "hard-opus-c-long_policy-04",
+      "tier": "hard",
+      "seconds": 6.597625654000012
+    },
+    {
+      "id": "hard-opus-c-long_policy-05",
+      "tier": "hard",
+      "seconds": 6.671842854000033
+    },
+    {
+      "id": "hard-opus-c-long_policy-08",
+      "tier": "hard",
+      "seconds": 6.526313207999976
+    },
+    {
+      "id": "hard-opus-c-long_policy-10",
+      "tier": "hard",
+      "seconds": 7.499802489999979
+    },
+    {
+      "id": "hard-opus-c-long_policy-11",
+      "tier": "hard",
+      "seconds": 7.374360767999974
+    },
+    {
+      "id": "hard-opus-c-probability-03",
+      "tier": "hard",
+      "seconds": 0.0423272130000214
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-02",
+      "tier": "hard",
+      "seconds": 1.140458231000025
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.862502290000009
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-04",
+      "tier": "hard",
+      "seconds": 0.7753023910000252
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-06",
+      "tier": "hard",
+      "seconds": 1.0849859109999898
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-08",
+      "tier": "hard",
+      "seconds": 0.7959299510000051
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-12",
+      "tier": "hard",
+      "seconds": 0.9677973969999698
+    },
+    {
+      "id": "hard-sol-a-adversarial-01",
+      "tier": "hard",
+      "seconds": 0.02598984000002247
+    },
+    {
+      "id": "hard-sol-a-adversarial-06",
+      "tier": "hard",
+      "seconds": 0.025357450000001336
+    },
+    {
+      "id": "hard-sol-a-adversarial-07",
+      "tier": "hard",
+      "seconds": 0.343739080999967
+    },
+    {
+      "id": "hard-sol-a-adversarial-08",
+      "tier": "hard",
+      "seconds": 0.025910577000047397
+    },
+    {
+      "id": "hard-sol-a-adversarial-09",
+      "tier": "hard",
+      "seconds": 0.025925056999994922
+    },
+    {
+      "id": "hard-sol-a-adversarial-11",
+      "tier": "hard",
+      "seconds": 0.04980210500002613
+    },
+    {
+      "id": "hard-sol-a-multi_hop-01",
+      "tier": "hard",
+      "seconds": 0.28256108299996185
+    },
+    {
+      "id": "hard-sol-a-multi_hop-02",
+      "tier": "hard",
+      "seconds": 4.167842746000019
+    },
+    {
+      "id": "hard-sol-a-multi_hop-05",
+      "tier": "hard",
+      "seconds": 0.2719450019999954
+    },
+    {
+      "id": "hard-sol-a-multi_hop-07",
+      "tier": "hard",
+      "seconds": 0.26316319699998303
+    },
+    {
+      "id": "hard-sol-a-multi_hop-08",
+      "tier": "hard",
+      "seconds": 0.26710497699997404
+    },
+    {
+      "id": "hard-sol-a-multi_hop-09",
+      "tier": "hard",
+      "seconds": 0.2690445210000121
+    },
+    {
+      "id": "hard-sol-a-multi_hop-10",
+      "tier": "hard",
+      "seconds": 0.2694373900000073
+    },
+    {
+      "id": "hard-sol-a-multi_hop-12",
+      "tier": "hard",
+      "seconds": 0.26715925999997125
+    },
+    {
+      "id": "hard-sol-a-trap-02",
+      "tier": "hard",
+      "seconds": 0.028962844000034238
+    },
+    {
+      "id": "hard-sol-a-trap-04",
+      "tier": "hard",
+      "seconds": 0.023859196000046268
+    },
+    {
+      "id": "hard-sol-a-trap-05",
+      "tier": "hard",
+      "seconds": 0.376763493999988
+    },
+    {
+      "id": "hard-sol-a-trap-06",
+      "tier": "hard",
+      "seconds": 0.0302184939999961
+    },
+    {
+      "id": "hard-sol-a-trap-08",
+      "tier": "hard",
+      "seconds": 0.025961978999987423
+    },
+    {
+      "id": "hard-sol-a-trap-10",
+      "tier": "hard",
+      "seconds": 0.024881846000027963
+    },
+    {
+      "id": "hard-sol-a-trap-13",
+      "tier": "hard",
+      "seconds": 0.02529873700001417
+    },
+    {
+      "id": "hard-sol-a-trap-15",
+      "tier": "hard",
+      "seconds": 0.028665059999980258
+    },
+    {
+      "id": "hard-sol-b-judge_hard-01",
+      "tier": "hard",
+      "seconds": 0.048529021999968336
+    },
+    {
+      "id": "hard-sol-b-judge_hard-02",
+      "tier": "hard",
+      "seconds": 0.04576243799999702
+    },
+    {
+      "id": "hard-sol-b-judge_hard-05",
+      "tier": "hard",
+      "seconds": 0.025336019000008037
+    },
+    {
+      "id": "hard-sol-b-judge_hard-08",
+      "tier": "hard",
+      "seconds": 0.04551274599998578
+    },
+    {
+      "id": "hard-sol-b-judge_hard-10",
+      "tier": "hard",
+      "seconds": 0.4243525399999726
+    },
+    {
+      "id": "hard-sol-b-judge_hard-14",
+      "tier": "hard",
+      "seconds": 0.025772738999989997
+    },
+    {
+      "id": "hard-sol-b-judge_hard-15",
+      "tier": "hard",
+      "seconds": 0.024633034000032694
+    },
+    {
+      "id": "hard-sol-b-judge_hard-18",
+      "tier": "hard",
+      "seconds": 0.024052756000003228
+    },
+    {
+      "id": "hard-sol-b-long_policy-01",
+      "tier": "hard",
+      "seconds": 5.6090921869999875
+    },
+    {
+      "id": "hard-sol-b-long_policy-02",
+      "tier": "hard",
+      "seconds": 4.608540748999985
+    },
+    {
+      "id": "hard-sol-b-long_policy-05",
+      "tier": "hard",
+      "seconds": 5.062315137999974
+    },
+    {
+      "id": "hard-sol-b-long_policy-06",
+      "tier": "hard",
+      "seconds": 5.089057622999974
+    },
+    {
+      "id": "hard-sol-b-routing_hard-01",
+      "tier": "hard",
+      "seconds": 0.02849337899999682
+    },
+    {
+      "id": "hard-sol-b-routing_hard-02",
+      "tier": "hard",
+      "seconds": 0.02726519099996949
+    },
+    {
+      "id": "hard-sol-b-routing_hard-03",
+      "tier": "hard",
+      "seconds": 0.027590585999973882
+    },
+    {
+      "id": "hard-sol-b-routing_hard-07",
+      "tier": "hard",
+      "seconds": 0.02532242600000245
+    },
+    {
+      "id": "hard-sol-b-routing_hard-09",
+      "tier": "hard",
+      "seconds": 0.025218371000050865
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-01",
+      "tier": "hard",
+      "seconds": 0.4153480699999932
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-02",
+      "tier": "hard",
+      "seconds": 0.04653844299997445
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.4157797010000195
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-04",
+      "tier": "hard",
+      "seconds": 0.06966959300001463
+    },
+    {
+      "id": "hard-sol-c-judge_hard-03",
+      "tier": "hard",
+      "seconds": 0.45206269700003077
+    },
+    {
+      "id": "hard-sol-c-judge_hard-05",
+      "tier": "hard",
+      "seconds": 0.4654733460000102
+    },
+    {
+      "id": "hard-sol-c-judge_hard-07",
+      "tier": "hard",
+      "seconds": 0.05484236500001316
+    },
+    {
+      "id": "hard-sol-c-judge_hard-08",
+      "tier": "hard",
+      "seconds": 0.05249978199998395
+    },
+    {
+      "id": "hard-sol-c-judge_hard-09",
+      "tier": "hard",
+      "seconds": 0.05232036299997844
+    },
+    {
+      "id": "hard-sol-c-judge_hard-10",
+      "tier": "hard",
+      "seconds": 0.05574426900000162
+    },
+    {
+      "id": "hard-sol-c-judge_hard-11",
+      "tier": "hard",
+      "seconds": 0.029954830000008315
+    },
+    {
+      "id": "hard-sol-c-judge_hard-13",
+      "tier": "hard",
+      "seconds": 0.05525235499999326
+    },
+    {
+      "id": "hard-sol-c-judge_hard-15",
+      "tier": "hard",
+      "seconds": 0.028315980999991552
+    },
+    {
+      "id": "hard-sol-c-multi_hop-07",
+      "tier": "hard",
+      "seconds": 0.8595307260000027
+    },
+    {
+      "id": "hard-sol-c-multi_hop-09",
+      "tier": "hard",
+      "seconds": 0.29932561199996144
+    },
+    {
+      "id": "hard-sol-c-multi_hop-11",
+      "tier": "hard",
+      "seconds": 4.698397613999987
+    },
+    {
+      "id": "hard-sol-c-multi_hop-12",
+      "tier": "hard",
+      "seconds": 0.65128279999999
+    },
+    {
+      "id": "hard-sol-c-multi_hop-13",
+      "tier": "hard",
+      "seconds": 0.3116646579999838
+    }
+  ]
+}

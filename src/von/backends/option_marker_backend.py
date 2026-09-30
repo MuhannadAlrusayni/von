@@ -6,9 +6,11 @@ Executes single-pass non-autoregressive decision evaluation:
 - Score: Single-pass ordinal rating over all levels simultaneously.
 """
 
+import hashlib
 import json
 import math
 import os
+import sys
 import threading
 import warnings
 from typing import Any, Dict, List, Optional, Union
@@ -27,7 +29,7 @@ from ..types import (
 )
 from .base import BaseBackend
 from ..device import _detect_device, OpenVINODevice
-from ..models.option_marker import OptionMarkerModel
+from ..models.option_marker import OptionMarkerModel, split_digits
 
 
 
@@ -65,7 +67,7 @@ def _format_state(state: Any) -> str:
 # id, so pinned installs keep resolving.
 VON_HF_REPO = "wfzyx/von"
 
-VON_MODEL_ID = "von-1.2.0"
+VON_MODEL_ID = "von-1.3.0"
 
 
 
@@ -119,6 +121,31 @@ def _validate_noul_prior(raw: object) -> Optional[Dict[str, float]]:
         return {"a": float(raw["a"]), "b": float(raw["b"])}
     except (KeyError, TypeError, ValueError):
         return None
+
+
+def _noul_decide(p: float, edge: float, slope: float) -> float:
+    """Map a calibrated P(yes) to a committed decision probability.
+
+    The calibrated posterior sits near 0.5 on long or ambiguous states (the
+    input-conditioned temperature map flattens it), so a consumer that reads
+    P(yes) <= 0.2 as No, >= 0.8 as Yes and everything between as an
+    abstention (JevBench v1.5 Noul rule) records almost every answer as an
+    abstain. This piecewise-affine map keeps the argmax and the ordering, and
+    guarantees |p' - 0.5| >= edge - 0.5:
+
+        p >= 0.5:  p' = edge + slope * (p - 0.5)
+        p <  0.5:  p' = (1 - edge) - slope * (0.5 - p)
+
+    edge=0.5, slope=1 is the identity. Slope was chosen on jabr v2 Noul tasks
+    (never JevBench): 0 has the lowest ECE, 0.1 costs ~0.02 ECE and keeps the
+    map strictly monotone.
+    """
+    p = max(0.0, min(1.0, p))
+    if p >= 0.5:
+        out = edge + slope * (p - 0.5)
+    else:
+        out = (1.0 - edge) - slope * (0.5 - p)
+    return max(0.0, min(1.0, out))
 
 
 class _IndependentOptionsEncoder(torch.nn.Module):
@@ -222,12 +249,26 @@ def _ov_core_with_cache(target: str):
     return core, cache_dir
 
 
+def _openvino_encoder_cache_key(encoder: torch.nn.Module) -> str:
+    import openvino as ov
+
+    # A release name or checkpoint path does not identify fine-tuned/replaced weights.
+    digest = hashlib.sha256()
+    digest.update(f"{type(encoder).__module__}.{type(encoder).__qualname__}:{torch.__version__}:{ov.__version__}".encode())
+    digest.update(encoder.config.to_json_string(use_diff=False).encode())
+    for name, tensor in sorted(encoder.state_dict().items()):
+        digest.update(f"{name}:{tensor.dtype}:{tuple(tensor.shape)}".encode())
+        # View bytes directly: supports bfloat16 without allocating a second weights blob.
+        digest.update(tensor.detach().cpu().contiguous().reshape(-1).view(torch.uint8).numpy())
+    return digest.hexdigest()
+
+
 def _compile_openvino_encoder(encoder: torch.nn.Module, target: str = "GPU") -> torch.nn.Module:
     """Compiles the PyTorch ModernBERT encoder (plain mode) to OpenVINO with disk caching."""
     import openvino as ov
 
     core, cache_dir = _ov_core_with_cache(target)
-    xml_path = os.path.join(cache_dir, f"encoder_{VON_MODEL_ID}.xml")
+    xml_path = os.path.join(cache_dir, f"encoder_{VON_MODEL_ID}_{_openvino_encoder_cache_key(encoder)}.xml")
     if os.path.exists(xml_path):
         compiled_model = core.compile_model(xml_path, device_name=target)
     else:
@@ -241,7 +282,7 @@ def _compile_openvino_encoder(encoder: torch.nn.Module, target: str = "GPU") -> 
         compiled_model = core.compile_model(ov_model, device_name=target)
 
     dev_name = core.get_property(target, "FULL_DEVICE_NAME") if target in core.available_devices else target
-    print(f"[von] Accelerated ModernBERT encoder on {dev_name} via OpenVINO")
+    print(f"[von] Accelerated ModernBERT encoder on {dev_name} via OpenVINO", file=sys.stderr)
     return OpenVINOEncoderWrapper(compiled_plain=compiled_model, config=encoder.config)
 
 
@@ -254,7 +295,7 @@ def _compile_openvino_independent_encoder(encoder: torch.nn.Module, target: str 
     import openvino as ov
 
     core, cache_dir = _ov_core_with_cache(target)
-    xml_path = os.path.join(cache_dir, f"encoder_indep_{VON_MODEL_ID}.xml")
+    xml_path = os.path.join(cache_dir, f"encoder_indep_{VON_MODEL_ID}_{_openvino_encoder_cache_key(encoder)}.xml")
     if os.path.exists(xml_path):
         compiled_model = core.compile_model(xml_path, device_name=target)
     else:
@@ -281,7 +322,7 @@ def _compile_openvino_independent_encoder(encoder: torch.nn.Module, target: str 
         compiled_model = core.compile_model(ov_model, device_name=target)
 
     dev_name = core.get_property(target, "FULL_DEVICE_NAME") if target in core.available_devices else target
-    print(f"[von] Accelerated ModernBERT encoder (independent_options) on {dev_name} via OpenVINO")
+    print(f"[von] Accelerated ModernBERT encoder (independent_options) on {dev_name} via OpenVINO", file=sys.stderr)
     return OpenVINOEncoderWrapper(compiled_independent=compiled_model, config=encoder.config)
 
 class OptionMarkerBackend(BaseBackend):
@@ -327,6 +368,109 @@ class OptionMarkerBackend(BaseBackend):
         self._noul_prior: Optional[dict] = None
         self._independent_options = False
         self._lock = threading.Lock()
+        # State-length ceiling in tokens. Default 8192 equals the encoder window,
+        # so nothing changes unless a user lowers it (a hard latency ceiling) or
+        # sends a state that would overflow the window (previously a positions
+        # error, now a middle truncation with a warning on the response).
+        self.max_state_tokens = int(os.environ.get("VON_MAX_STATE_TOKENS", "8192"))
+        # What to do when a state does not fit: "truncate" (default, middle cut
+        # with a warning) or "refuse" (raise; the server answers 422 with a
+        # "context window" message). Benchmarks with a no-truncation rule, such
+        # as the Decision Index, need refuse so an oversize row is recorded as
+        # unsupported rather than answered on a shortened state.
+        self.on_overflow = os.environ.get("VON_ON_OVERFLOW", "truncate").strip().lower()
+        if self.on_overflow not in ("truncate", "refuse"):
+            raise ValueError(f"VON_ON_OVERFLOW must be 'truncate' or 'refuse', got {self.on_overflow!r}")
+        # Noul decision rule (see _noul_decide). "band" (default) commits every
+        # answer outside the 0.2..0.8 abstention band; "raw" returns the
+        # calibrated posterior unchanged (pre-1.3.2 behaviour).
+        self.noul_decision = os.environ.get("VON_NOUL_DECISION", "band").strip().lower()
+        if self.noul_decision not in ("band", "raw"):
+            raise ValueError(f"VON_NOUL_DECISION must be 'band' or 'raw', got {self.noul_decision!r}")
+        self.noul_band_edge = float(os.environ.get("VON_NOUL_BAND_EDGE", "0.8"))
+        self.noul_band_slope = float(os.environ.get("VON_NOUL_BAND_SLOPE", "0.1"))
+        if not (0.5 <= self.noul_band_edge <= 1.0) or not (0.0 <= self.noul_band_slope <= 1.0):
+            raise ValueError("VON_NOUL_BAND_EDGE must be in [0.5, 1] and VON_NOUL_BAND_SLOPE in [0, 1]")
+        self._trunc_local = threading.local()
+        self._capture_local = threading.local()  # von calibrate: raw-logit sink
+        # Chain-of-options: on by default with the bundled library in bindall
+        # mode (Von 1.3). VON_CHAINS_DIR=<dir> swaps the library, VON_CHAINS_DIR=off
+        # (von serve --no-chains) disables it. Sub-decisions made by the runner
+        # come back through evaluate_* with runner.active() set, which is the
+        # recursion guard.
+        self.chain_runner = None
+        chains_dir = os.environ.get("VON_CHAINS_DIR", "").strip()
+        if chains_dir.lower() in ("off", "none", "0", "false"):
+            chains_dir = ""
+        elif not chains_dir:
+            chains_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chains", "library")
+        if chains_dir and os.path.isdir(chains_dir):
+            from ..chains.runner import ChainRunner
+            self.chain_runner = ChainRunner(self, chains_dir, mode=os.environ.get("VON_CHAINS_MODE", "bindall"))
+        self.last_chain_trace = None
+        self.chains_max_state_tokens = int(os.environ.get("VON_CHAINS_MAX_STATE_TOKENS", "4096"))
+
+    def _maybe_chain(self, state_text: str, q):
+        """Run the chain controller first when enabled; None means answer plainly."""
+        r = self.chain_runner
+        if r is None or r.active():
+            return None
+        # The state cap is a latency ceiling; the controller works inside it.
+        # Every sub-decision would otherwise run the encoder on the full text.
+        model = self._get_model()
+        state_text = self._fit_state(model, state_text, getattr(q, "instructions", "") or "", [])
+        # Chains cost up to VON_CHAINS_MAX_CALLS encoder passes on the state; past
+        # this length that is seconds on CPU, so the controller stands down.
+        if len(model.tokenizer(state_text, add_special_tokens=False)["input_ids"]) > self.chains_max_state_tokens:
+            self.last_chain_trace = {"fallback": "gate:state-too-long"}
+            return None
+        try:
+            ans, trace = r.run(state_text, q)
+        except Exception as e:  # noqa: BLE001 - never let the controller break a plain answer
+            self.last_chain_trace = {"fallback": f"runner:{type(e).__name__}:{e}"}
+            return None
+        self.last_chain_trace = trace
+        return ans
+
+    def _count_tokens(self, inputs) -> None:
+        """Accumulate the real encoder input length for the current request's usage."""
+        try:
+            n = int(inputs["input_ids"].shape[-1])
+        except (KeyError, AttributeError, TypeError):
+            return
+        self._trunc_local.tokens = getattr(self._trunc_local, "tokens", 0) + n
+
+    def _fit_state(self, model, state_text: str, question: str, descriptions: List[str]) -> str:
+        """Middle-truncate the state so question + all option markers always fit.
+
+        Rules and headers sit at the top of a state, ledgers and events at the
+        bottom; the middle is the cheapest place to lose tokens. Keeps 60% head,
+        40% tail, joined by an ellipsis. Records the event on a thread-local so
+        evaluate() can surface it in the response.
+        """
+        tok = model.tokenizer
+        window = int(getattr(model.encoder.config, "max_position_embeddings", 8192))
+        # Everything except the state: question, separator, markers, options.
+        reserve = len(tok(model.pack_sequence("", question, descriptions))["input_ids"]) + 8
+        limit = max(16, min(self.max_state_tokens, window - reserve))
+        text = split_digits(state_text) if model.digit_split else state_text
+        ids = tok(text, add_special_tokens=False)["input_ids"]
+        if len(ids) <= limit:
+            return state_text
+        if self.on_overflow == "refuse":
+            raise ValueError(
+                f"request of {len(ids) + reserve} tokens (state {len(ids)}, question+options {reserve}) "
+                f"exceeds the {window}-token context window (max_state_tokens {self.max_state_tokens}); "
+                "refusing rather than truncating (VON_ON_OVERFLOW=refuse)"
+            )
+        head = int(limit * 0.6)
+        tail = limit - head - 2
+        fitted = tok.decode(ids[:head]) + " ... " + tok.decode(ids[-tail:])
+        events = getattr(self._trunc_local, "events", None)
+        if events is None:
+            events = self._trunc_local.events = []
+        events.append({"state_tokens": len(ids), "kept_tokens": limit, "strategy": "middle"})
+        return fitted
 
     def _effective_temperature(
         self,
@@ -348,12 +492,23 @@ class OptionMarkerBackend(BaseBackend):
         Temperature is monotonic, so this never moves the argmax: it changes how
         sure Von claims to be, never what Von answers.
         """
+        capture = getattr(self._capture_local, "sink", None)
+        if capture is not None:
+            # von calibrate: record the raw logits and the exact features the map
+            # reads, so a map can be refitted offline with no drift from serving.
+            capture.append(self._calib_features(logits, state_text, n_options, tokenizer))
         if override is not None:
             return override
         params = self._calib_map
         if not params:
             return self._default_temp
+        feats = self._calib_features(logits, state_text, n_options, tokenizer)["feats"]
+        raw = sum(params.get(k, 0.0) * v for k, v in feats.items())
+        return min(params["hi"], max(params["lo"], raw))
 
+    @staticmethod
+    def _calib_features(logits: "torch.Tensor", state_text: str, n_options: int, tokenizer) -> Dict[str, Any]:
+        """Features of the temperature map for one request (must match the fitter)."""
         probs = torch.softmax(logits.float(), dim=-1)
         n = max(probs.numel(), 1)
         if n > 1:
@@ -370,8 +525,7 @@ class OptionMarkerBackend(BaseBackend):
             "log_tokens": math.log10(tokens) / 4.0,
             "n_options": n_options / 8.0,
         }
-        raw = sum(params.get(k, 0.0) * v for k, v in feats.items())
-        return min(params["hi"], max(params["lo"], raw))
+        return {"logits": logits.detach().float().cpu().tolist(), "feats": feats}
 
     def _get_model(self) -> OptionMarkerModel:
         with self._lock:
@@ -435,11 +589,11 @@ class OptionMarkerBackend(BaseBackend):
 
                 if self._calib_map:
                     print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} "
-                          f"(input-conditioned calibration map active)")
+                          f"(input-conditioned calibration map active)", file=sys.stderr)
                 elif self._default_temp != 1.0:
-                    print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} (temperature {self._default_temp})")
+                    print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} (temperature {self._default_temp})", file=sys.stderr)
                 else:
-                    print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} (uncalibrated, T=1.0)")
+                    print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} (uncalibrated, T=1.0)", file=sys.stderr)
 
                 # OpenVINO needs a different traced graph per attention mode: the
                 # plain one takes a 2D padding mask; the order-invariant one takes
@@ -467,6 +621,10 @@ class OptionMarkerBackend(BaseBackend):
         if not options:
             return ChoiceAnswer(choice="", probabilities={}, confidence=0.0)
 
+        chained = self._maybe_chain(state_text, q)
+        if chained is not None:
+            return chained
+
         model = self._get_model()
         tok = model.tokenizer
 
@@ -475,11 +633,15 @@ class OptionMarkerBackend(BaseBackend):
             desc = q.criteria.get(opt)
             descriptions.append(desc.strip() if desc else opt.strip())
 
+        state_text = self._fit_state(model, state_text, q.instructions, descriptions)
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
+        self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
+        if len(pos_list) != len(descriptions):
+            raise RuntimeError(f"option-marker count {len(pos_list)} != options {len(descriptions)}; packing is corrupt")
 
         with torch.no_grad():
             batch_logits = model(
@@ -511,6 +673,11 @@ class OptionMarkerBackend(BaseBackend):
         temperature: Optional[float] = None,
         **kwargs,
     ) -> NoulAnswer:
+        chained = self._maybe_chain(state_text, q)
+        if chained is not None:
+            return self._commit_noul(chained)
+
+
         model = self._get_model()
         tok = model.tokenizer
 
@@ -525,11 +692,15 @@ class OptionMarkerBackend(BaseBackend):
             neg_desc = "No, condition is false."
 
         descriptions = [pos_desc, neg_desc]
+        state_text = self._fit_state(model, state_text, q.instructions, descriptions)
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
+        self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
+        if len(pos_list) != len(descriptions):
+            raise RuntimeError(f"option-marker count {len(pos_list)} != options {len(descriptions)}; packing is corrupt")
 
         with torch.no_grad():
             batch_logits = model(
@@ -544,6 +715,7 @@ class OptionMarkerBackend(BaseBackend):
             if not has_explicit:
                 null_packed = model.pack_sequence("", q.instructions, descriptions)
                 null_inputs = tok(null_packed, return_tensors="pt").to(self.device)
+                self._count_tokens(null_inputs)
                 null_pos = (null_inputs["input_ids"][0] == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
                 null_logits = model(
                     input_ids=null_inputs["input_ids"],
@@ -572,7 +744,13 @@ class OptionMarkerBackend(BaseBackend):
             probs = torch.softmax(scaled, dim=-1).cpu().tolist()
 
         prob_true = round(max(0.0, min(1.0, probs[0])), 4)
-        return NoulAnswer(noul=prob_true)
+        return self._commit_noul(NoulAnswer(noul=prob_true))
+
+    def _commit_noul(self, ans: NoulAnswer) -> NoulAnswer:
+        if self.noul_decision == "raw":
+            return ans
+        ans.noul = round(_noul_decide(float(ans.noul), self.noul_band_edge, self.noul_band_slope), 4)
+        return ans
 
     def evaluate_score(
         self,
@@ -585,6 +763,10 @@ class OptionMarkerBackend(BaseBackend):
         levels = q.criteria
         if not levels:
             return ScoreAnswer(score=0.0, confidence=0.0, legend={}, probabilities={})
+
+        chained = self._maybe_chain(state_text, q)
+        if chained is not None:
+            return chained
 
         model = self._get_model()
         tok = model.tokenizer
@@ -605,11 +787,15 @@ class OptionMarkerBackend(BaseBackend):
             legend[idx_str] = desc
             descriptions.append(desc)
 
+        state_text = self._fit_state(model, state_text, q.instructions, descriptions)
         packed_text = model.pack_sequence(state_text, q.instructions, descriptions)
 
         inputs = tok(packed_text, return_tensors="pt").to(self.device)
+        self._count_tokens(inputs)
         input_ids = inputs["input_ids"][0]
         pos_list = (input_ids == model.mask_token_id).nonzero(as_tuple=True)[0].tolist()
+        if len(pos_list) != len(descriptions):
+            raise RuntimeError(f"option-marker count {len(pos_list)} != options {len(descriptions)}; packing is corrupt")
 
         with torch.no_grad():
             batch_logits = model(
@@ -646,6 +832,8 @@ class OptionMarkerBackend(BaseBackend):
         state_str = _format_state(state)
         answers: Dict[str, Union[NoulAnswer, ChoiceAnswer, ScoreAnswer]] = {}
         total_q_chars = 0
+        self._trunc_local.events = []
+        self._trunc_local.tokens = 0
 
         for q_id, q_data in questions.items():
             if isinstance(q_data, dict):
@@ -672,16 +860,32 @@ class OptionMarkerBackend(BaseBackend):
                 total_q_chars += len(q_obj.instructions or "")
 
         resolved_model = model or VON_MODEL_ID
-        state_tokens = max(1, len(state_str) // 4)
-        q_tokens = max(1, total_q_chars // 4)
+        # Real count: sum of encoder input lengths over every forward pass this
+        # request ran (JevBench's Cost axis uses the system's own count). The
+        # chars/4 guess is the fallback only if no pass was recorded.
+        measured = int(getattr(self._trunc_local, "tokens", 0) or 0)
+        if measured <= 0:
+            measured = max(1, len(state_str) // 4) + max(1, total_q_chars // 4)
 
         usage = Usage(
-            input_tokens=state_tokens + q_tokens,
+            input_tokens=measured,
             output_tokens=len(answers),
         )
+
+        events = list(getattr(self._trunc_local, "events", []) or [])
+        truncation = None
+        if events:
+            worst = max(events, key=lambda e: e["state_tokens"])
+            truncation = {
+                "state_tokens": worst["state_tokens"],
+                "kept_tokens": worst["kept_tokens"],
+                "strategy": "middle",
+                "questions_affected": len(events),
+            }
 
         return SystemOneResponse(
             model=resolved_model,
             answers=answers,
             usage=usage,
+            truncation=truncation,
         )

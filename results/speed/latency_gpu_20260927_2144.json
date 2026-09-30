@@ -1,0 +1,942 @@
+{
+  "system": "von-395m",
+  "checkpoint": "von-1.2",
+  "endpoint_kind": "gpu",
+  "hardware": "AWS g5.xlarge (1x NVIDIA A10G), cuda",
+  "device": "cuda",
+  "measured_where": "serial HTTP client on the same host, model loaded and warmed before timing",
+  "run": "serial 72-decision standard run (public has no judge tier)",
+  "python": "3.12.14",
+  "speed": {
+    "p50_s_raw": 0.02258595999998647,
+    "p95_s_raw": 0.02351433589998919,
+    "p50_s_adjusted": 0.19517191999997294,
+    "p95_s_adjusted": 0.19702867179997838,
+    "adjustment": "x2 + 0.15 s (JevBench self-hosted assumption)",
+    "score": 94.1505323578545,
+    "hard_tier_p50_s": 0.03925874499998372,
+    "hard_tier_p95_s": 0.3874795195000047
+  },
+  "jev_class_latency_line": {
+    "adjusted_p50_max_s": 1.3,
+    "raw_p50_max_s": 0.575,
+    "passes": true
+  },
+  "per_item": [
+    {
+      "id": "original-policy-01-0",
+      "tier": "standard",
+      "seconds": 0.022815917999992053
+    },
+    {
+      "id": "original-policy-01-1",
+      "tier": "standard",
+      "seconds": 0.022513424000010218
+    },
+    {
+      "id": "original-policy-02-0",
+      "tier": "standard",
+      "seconds": 0.022275809999996454
+    },
+    {
+      "id": "original-policy-02-1",
+      "tier": "standard",
+      "seconds": 0.11631825900002468
+    },
+    {
+      "id": "original-policy-03-0",
+      "tier": "standard",
+      "seconds": 0.022857128999987708
+    },
+    {
+      "id": "original-policy-03-1",
+      "tier": "standard",
+      "seconds": 0.022674406000021463
+    },
+    {
+      "id": "original-policy-04-0",
+      "tier": "standard",
+      "seconds": 0.02271214699999291
+    },
+    {
+      "id": "original-policy-04-1",
+      "tier": "standard",
+      "seconds": 0.02264734599998519
+    },
+    {
+      "id": "original-policy-05-0",
+      "tier": "standard",
+      "seconds": 0.02260423500001707
+    },
+    {
+      "id": "original-policy-05-1",
+      "tier": "standard",
+      "seconds": 0.02274278699997012
+    },
+    {
+      "id": "original-policy-06-0",
+      "tier": "standard",
+      "seconds": 0.02277658899998869
+    },
+    {
+      "id": "original-policy-06-1",
+      "tier": "standard",
+      "seconds": 0.02255344499997136
+    },
+    {
+      "id": "original-intent-01-0",
+      "tier": "standard",
+      "seconds": 0.15148869699999068
+    },
+    {
+      "id": "original-intent-01-1",
+      "tier": "standard",
+      "seconds": 0.02355816100003949
+    },
+    {
+      "id": "original-intent-02-0",
+      "tier": "standard",
+      "seconds": 0.022662667000020065
+    },
+    {
+      "id": "original-intent-02-1",
+      "tier": "standard",
+      "seconds": 0.022545675000003484
+    },
+    {
+      "id": "original-intent-03-0",
+      "tier": "standard",
+      "seconds": 0.022624985999982528
+    },
+    {
+      "id": "original-intent-03-1",
+      "tier": "standard",
+      "seconds": 0.023061873000017385
+    },
+    {
+      "id": "original-intent-04-0",
+      "tier": "standard",
+      "seconds": 0.022106497000038416
+    },
+    {
+      "id": "original-intent-04-1",
+      "tier": "standard",
+      "seconds": 0.022624095000026045
+    },
+    {
+      "id": "original-intent-05-0",
+      "tier": "standard",
+      "seconds": 0.022589594999999463
+    },
+    {
+      "id": "original-intent-05-1",
+      "tier": "standard",
+      "seconds": 0.022780237999995734
+    },
+    {
+      "id": "original-intent-06-0",
+      "tier": "standard",
+      "seconds": 0.02265692600002467
+    },
+    {
+      "id": "original-intent-06-1",
+      "tier": "standard",
+      "seconds": 0.02270395699997607
+    },
+    {
+      "id": "original-ordinal-01-0",
+      "tier": "standard",
+      "seconds": 0.022948050000024978
+    },
+    {
+      "id": "original-ordinal-01-1",
+      "tier": "standard",
+      "seconds": 0.02292646099999729
+    },
+    {
+      "id": "original-ordinal-02-0",
+      "tier": "standard",
+      "seconds": 0.02370468300000539
+    },
+    {
+      "id": "original-ordinal-02-1",
+      "tier": "standard",
+      "seconds": 0.02290770000001885
+    },
+    {
+      "id": "original-ordinal-03-0",
+      "tier": "standard",
+      "seconds": 0.02258232499997348
+    },
+    {
+      "id": "original-ordinal-03-1",
+      "tier": "standard",
+      "seconds": 0.02278677900000048
+    },
+    {
+      "id": "original-ordinal-04-0",
+      "tier": "standard",
+      "seconds": 0.02283946899996181
+    },
+    {
+      "id": "original-ordinal-04-1",
+      "tier": "standard",
+      "seconds": 0.02188942399999405
+    },
+    {
+      "id": "original-ordinal-05-0",
+      "tier": "standard",
+      "seconds": 0.022287150000011025
+    },
+    {
+      "id": "original-ordinal-05-1",
+      "tier": "standard",
+      "seconds": 0.022435943000004954
+    },
+    {
+      "id": "original-ordinal-06-0",
+      "tier": "standard",
+      "seconds": 0.02288846999999805
+    },
+    {
+      "id": "original-ordinal-06-1",
+      "tier": "standard",
+      "seconds": 0.02321289600001819
+    },
+    {
+      "id": "original-extraction-01-0",
+      "tier": "standard",
+      "seconds": 0.022393751000038264
+    },
+    {
+      "id": "original-extraction-01-1",
+      "tier": "standard",
+      "seconds": 0.022399332000020422
+    },
+    {
+      "id": "original-extraction-02-0",
+      "tier": "standard",
+      "seconds": 0.022397232000002987
+    },
+    {
+      "id": "original-extraction-02-1",
+      "tier": "standard",
+      "seconds": 0.022618086000022686
+    },
+    {
+      "id": "original-extraction-03-0",
+      "tier": "standard",
+      "seconds": 0.022474532999979147
+    },
+    {
+      "id": "original-extraction-03-1",
+      "tier": "standard",
+      "seconds": 0.0223237310000286
+    },
+    {
+      "id": "original-extraction-04-0",
+      "tier": "standard",
+      "seconds": 0.02216295800002399
+    },
+    {
+      "id": "original-extraction-04-1",
+      "tier": "standard",
+      "seconds": 0.022213078999982372
+    },
+    {
+      "id": "original-extraction-05-0",
+      "tier": "standard",
+      "seconds": 0.022613515999978517
+    },
+    {
+      "id": "original-extraction-05-1",
+      "tier": "standard",
+      "seconds": 0.022319161000041277
+    },
+    {
+      "id": "original-extraction-06-0",
+      "tier": "standard",
+      "seconds": 0.02241708200000403
+    },
+    {
+      "id": "original-extraction-06-1",
+      "tier": "standard",
+      "seconds": 0.0220372960000077
+    },
+    {
+      "id": "original-adequacy-01-0",
+      "tier": "standard",
+      "seconds": 0.02247743300000593
+    },
+    {
+      "id": "original-adequacy-01-1",
+      "tier": "standard",
+      "seconds": 0.022196678000000247
+    },
+    {
+      "id": "original-adequacy-02-0",
+      "tier": "standard",
+      "seconds": 0.022069115999954647
+    },
+    {
+      "id": "original-adequacy-02-1",
+      "tier": "standard",
+      "seconds": 0.021954204999985905
+    },
+    {
+      "id": "original-adequacy-03-0",
+      "tier": "standard",
+      "seconds": 0.022294479999970918
+    },
+    {
+      "id": "original-adequacy-03-1",
+      "tier": "standard",
+      "seconds": 0.022653206000029513
+    },
+    {
+      "id": "original-adequacy-04-0",
+      "tier": "standard",
+      "seconds": 0.022468643000024713
+    },
+    {
+      "id": "original-adequacy-04-1",
+      "tier": "standard",
+      "seconds": 0.02231920099995932
+    },
+    {
+      "id": "original-adequacy-05-0",
+      "tier": "standard",
+      "seconds": 0.02211202799998091
+    },
+    {
+      "id": "original-adequacy-05-1",
+      "tier": "standard",
+      "seconds": 0.022471992999953727
+    },
+    {
+      "id": "original-adequacy-06-0",
+      "tier": "standard",
+      "seconds": 0.021853562999979204
+    },
+    {
+      "id": "original-adequacy-06-1",
+      "tier": "standard",
+      "seconds": 0.022472933000017292
+    },
+    {
+      "id": "original-routing-01-0",
+      "tier": "standard",
+      "seconds": 0.02247519400003739
+    },
+    {
+      "id": "original-routing-01-1",
+      "tier": "standard",
+      "seconds": 0.0229484210000237
+    },
+    {
+      "id": "original-routing-02-0",
+      "tier": "standard",
+      "seconds": 0.023478478999948038
+    },
+    {
+      "id": "original-routing-02-1",
+      "tier": "standard",
+      "seconds": 0.02319252500001312
+    },
+    {
+      "id": "original-routing-03-0",
+      "tier": "standard",
+      "seconds": 0.02235122100000808
+    },
+    {
+      "id": "original-routing-03-1",
+      "tier": "standard",
+      "seconds": 0.02246451299998853
+    },
+    {
+      "id": "original-routing-04-0",
+      "tier": "standard",
+      "seconds": 0.022693177000007836
+    },
+    {
+      "id": "original-routing-04-1",
+      "tier": "standard",
+      "seconds": 0.022436262999974588
+    },
+    {
+      "id": "original-routing-05-0",
+      "tier": "standard",
+      "seconds": 0.02188249400001041
+    },
+    {
+      "id": "original-routing-05-1",
+      "tier": "standard",
+      "seconds": 0.022607055999969816
+    },
+    {
+      "id": "original-routing-06-0",
+      "tier": "standard",
+      "seconds": 0.022357292000037887
+    },
+    {
+      "id": "original-routing-06-1",
+      "tier": "standard",
+      "seconds": 0.022929000999965865
+    },
+    {
+      "id": "hard-opus-a-long_policy-01",
+      "tier": "hard",
+      "seconds": 0.5511097950000021
+    },
+    {
+      "id": "hard-opus-a-long_policy-04",
+      "tier": "hard",
+      "seconds": 0.27982560099997045
+    },
+    {
+      "id": "hard-opus-a-long_policy-08",
+      "tier": "hard",
+      "seconds": 0.24626885899999706
+    },
+    {
+      "id": "hard-opus-a-long_policy-09",
+      "tier": "hard",
+      "seconds": 0.2704817599999956
+    },
+    {
+      "id": "hard-opus-a-long_policy-11",
+      "tier": "hard",
+      "seconds": 0.23537783299997272
+    },
+    {
+      "id": "hard-opus-a-long_policy-13",
+      "tier": "hard",
+      "seconds": 0.2489371629999937
+    },
+    {
+      "id": "hard-opus-a-long_policy-17",
+      "tier": "hard",
+      "seconds": 0.24606049599998414
+    },
+    {
+      "id": "hard-opus-a-long_policy-19",
+      "tier": "hard",
+      "seconds": 0.22118055400000003
+    },
+    {
+      "id": "hard-opus-a-probability-03",
+      "tier": "hard",
+      "seconds": 0.03328788800001803
+    },
+    {
+      "id": "hard-opus-a-probability-04",
+      "tier": "hard",
+      "seconds": 0.07496475099998179
+    },
+    {
+      "id": "hard-opus-a-probability-07",
+      "tier": "hard",
+      "seconds": 0.07709206600003427
+    },
+    {
+      "id": "hard-opus-a-probability-08",
+      "tier": "hard",
+      "seconds": 0.027364341999998487
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.034962914999994155
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-06",
+      "tier": "hard",
+      "seconds": 0.03530409999996209
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-07",
+      "tier": "hard",
+      "seconds": 0.1832756019999806
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-09",
+      "tier": "hard",
+      "seconds": 0.035663706000036655
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-12",
+      "tier": "hard",
+      "seconds": 0.03805893499998092
+    },
+    {
+      "id": "hard-opus-b-ambiguous-02",
+      "tier": "hard",
+      "seconds": 0.03847964200002707
+    },
+    {
+      "id": "hard-opus-b-ambiguous-03",
+      "tier": "hard",
+      "seconds": 0.03540607200000068
+    },
+    {
+      "id": "hard-opus-b-ambiguous-07",
+      "tier": "hard",
+      "seconds": 0.035037176000003
+    },
+    {
+      "id": "hard-opus-b-ambiguous-09",
+      "tier": "hard",
+      "seconds": 0.04639618999999584
+    },
+    {
+      "id": "hard-opus-b-ambiguous-10",
+      "tier": "hard",
+      "seconds": 0.03554160400000228
+    },
+    {
+      "id": "hard-opus-b-ambiguous-11",
+      "tier": "hard",
+      "seconds": 0.034625958999981776
+    },
+    {
+      "id": "hard-opus-b-ambiguous-13",
+      "tier": "hard",
+      "seconds": 0.03925874499998372
+    },
+    {
+      "id": "hard-opus-b-multi_hop-03",
+      "tier": "hard",
+      "seconds": 0.3265334270000153
+    },
+    {
+      "id": "hard-opus-b-multi_hop-04",
+      "tier": "hard",
+      "seconds": 0.24105127499996115
+    },
+    {
+      "id": "hard-opus-b-multi_hop-05",
+      "tier": "hard",
+      "seconds": 0.25402334500000734
+    },
+    {
+      "id": "hard-opus-b-multi_hop-07",
+      "tier": "hard",
+      "seconds": 0.23845302299997684
+    },
+    {
+      "id": "hard-opus-b-multi_hop-08",
+      "tier": "hard",
+      "seconds": 0.21445762500002274
+    },
+    {
+      "id": "hard-opus-b-probability-01",
+      "tier": "hard",
+      "seconds": 0.1541251099999954
+    },
+    {
+      "id": "hard-opus-b-probability-02",
+      "tier": "hard",
+      "seconds": 0.03566981599999508
+    },
+    {
+      "id": "hard-opus-b-probability-03",
+      "tier": "hard",
+      "seconds": 0.08343020799998158
+    },
+    {
+      "id": "hard-opus-b-probability-04",
+      "tier": "hard",
+      "seconds": 0.037958154000023114
+    },
+    {
+      "id": "hard-opus-b-probability-06",
+      "tier": "hard",
+      "seconds": 0.07078933299999335
+    },
+    {
+      "id": "hard-opus-b-tradeoff-01",
+      "tier": "hard",
+      "seconds": 0.06323323099996969
+    },
+    {
+      "id": "hard-opus-b-tradeoff-03",
+      "tier": "hard",
+      "seconds": 0.04804533700001912
+    },
+    {
+      "id": "hard-opus-b-tradeoff-06",
+      "tier": "hard",
+      "seconds": 0.055361633999950755
+    },
+    {
+      "id": "hard-opus-b-tradeoff-07",
+      "tier": "hard",
+      "seconds": 0.05504846799999541
+    },
+    {
+      "id": "hard-opus-b-tradeoff-08",
+      "tier": "hard",
+      "seconds": 0.042777920999981234
+    },
+    {
+      "id": "hard-opus-b-tradeoff-12",
+      "tier": "hard",
+      "seconds": 0.03972333100000469
+    },
+    {
+      "id": "hard-opus-c-long_policy-02",
+      "tier": "hard",
+      "seconds": 0.44998024300002726
+    },
+    {
+      "id": "hard-opus-c-long_policy-03",
+      "tier": "hard",
+      "seconds": 0.44670099000001073
+    },
+    {
+      "id": "hard-opus-c-long_policy-04",
+      "tier": "hard",
+      "seconds": 0.38207220700002154
+    },
+    {
+      "id": "hard-opus-c-long_policy-05",
+      "tier": "hard",
+      "seconds": 0.3826323160000129
+    },
+    {
+      "id": "hard-opus-c-long_policy-08",
+      "tier": "hard",
+      "seconds": 0.3923267229999965
+    },
+    {
+      "id": "hard-opus-c-long_policy-10",
+      "tier": "hard",
+      "seconds": 0.45014954700002363
+    },
+    {
+      "id": "hard-opus-c-long_policy-11",
+      "tier": "hard",
+      "seconds": 0.4306052809999983
+    },
+    {
+      "id": "hard-opus-c-probability-03",
+      "tier": "hard",
+      "seconds": 0.03904916999999841
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-02",
+      "tier": "hard",
+      "seconds": 0.06343395400000418
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.056946329999959744
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-04",
+      "tier": "hard",
+      "seconds": 0.046687062999978934
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-06",
+      "tier": "hard",
+      "seconds": 0.06503727000000481
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-08",
+      "tier": "hard",
+      "seconds": 0.06293773599998076
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-12",
+      "tier": "hard",
+      "seconds": 0.05651841200000263
+    },
+    {
+      "id": "hard-sol-a-adversarial-01",
+      "tier": "hard",
+      "seconds": 0.025623133999999936
+    },
+    {
+      "id": "hard-sol-a-adversarial-06",
+      "tier": "hard",
+      "seconds": 0.025166186000035395
+    },
+    {
+      "id": "hard-sol-a-adversarial-07",
+      "tier": "hard",
+      "seconds": 0.02440103399999316
+    },
+    {
+      "id": "hard-sol-a-adversarial-08",
+      "tier": "hard",
+      "seconds": 0.024709248999954525
+    },
+    {
+      "id": "hard-sol-a-adversarial-09",
+      "tier": "hard",
+      "seconds": 0.02480027999996537
+    },
+    {
+      "id": "hard-sol-a-adversarial-11",
+      "tier": "hard",
+      "seconds": 0.024876851000044553
+    },
+    {
+      "id": "hard-sol-a-multi_hop-01",
+      "tier": "hard",
+      "seconds": 0.26522331099999974
+    },
+    {
+      "id": "hard-sol-a-multi_hop-02",
+      "tier": "hard",
+      "seconds": 0.2665224120000289
+    },
+    {
+      "id": "hard-sol-a-multi_hop-05",
+      "tier": "hard",
+      "seconds": 0.25486679400000867
+    },
+    {
+      "id": "hard-sol-a-multi_hop-07",
+      "tier": "hard",
+      "seconds": 0.2457430370000111
+    },
+    {
+      "id": "hard-sol-a-multi_hop-08",
+      "tier": "hard",
+      "seconds": 0.2501506079999558
+    },
+    {
+      "id": "hard-sol-a-multi_hop-09",
+      "tier": "hard",
+      "seconds": 0.2529203530000359
+    },
+    {
+      "id": "hard-sol-a-multi_hop-10",
+      "tier": "hard",
+      "seconds": 0.252457134999986
+    },
+    {
+      "id": "hard-sol-a-multi_hop-12",
+      "tier": "hard",
+      "seconds": 0.2496144400000162
+    },
+    {
+      "id": "hard-sol-a-trap-02",
+      "tier": "hard",
+      "seconds": 0.026772472000004655
+    },
+    {
+      "id": "hard-sol-a-trap-04",
+      "tier": "hard",
+      "seconds": 0.024078578000001016
+    },
+    {
+      "id": "hard-sol-a-trap-05",
+      "tier": "hard",
+      "seconds": 0.027482774000020527
+    },
+    {
+      "id": "hard-sol-a-trap-06",
+      "tier": "hard",
+      "seconds": 0.027287909999984095
+    },
+    {
+      "id": "hard-sol-a-trap-08",
+      "tier": "hard",
+      "seconds": 0.02477729999998246
+    },
+    {
+      "id": "hard-sol-a-trap-10",
+      "tier": "hard",
+      "seconds": 0.02438232400004381
+    },
+    {
+      "id": "hard-sol-a-trap-13",
+      "tier": "hard",
+      "seconds": 0.024332363000041823
+    },
+    {
+      "id": "hard-sol-a-trap-15",
+      "tier": "hard",
+      "seconds": 0.026347504999989724
+    },
+    {
+      "id": "hard-sol-b-judge_hard-01",
+      "tier": "hard",
+      "seconds": 0.024573535999991236
+    },
+    {
+      "id": "hard-sol-b-judge_hard-02",
+      "tier": "hard",
+      "seconds": 0.024059899000008045
+    },
+    {
+      "id": "hard-sol-b-judge_hard-05",
+      "tier": "hard",
+      "seconds": 0.024576665999973102
+    },
+    {
+      "id": "hard-sol-b-judge_hard-08",
+      "tier": "hard",
+      "seconds": 0.023873805999983233
+    },
+    {
+      "id": "hard-sol-b-judge_hard-10",
+      "tier": "hard",
+      "seconds": 0.02455574600003274
+    },
+    {
+      "id": "hard-sol-b-judge_hard-14",
+      "tier": "hard",
+      "seconds": 0.02447390500003621
+    },
+    {
+      "id": "hard-sol-b-judge_hard-15",
+      "tier": "hard",
+      "seconds": 0.023741593000011108
+    },
+    {
+      "id": "hard-sol-b-judge_hard-18",
+      "tier": "hard",
+      "seconds": 0.023458999000013137
+    },
+    {
+      "id": "hard-sol-b-long_policy-01",
+      "tier": "hard",
+      "seconds": 0.3174258039999813
+    },
+    {
+      "id": "hard-sol-b-long_policy-02",
+      "tier": "hard",
+      "seconds": 0.3126276570000073
+    },
+    {
+      "id": "hard-sol-b-long_policy-05",
+      "tier": "hard",
+      "seconds": 0.29212210500003266
+    },
+    {
+      "id": "hard-sol-b-long_policy-06",
+      "tier": "hard",
+      "seconds": 0.29837634599999774
+    },
+    {
+      "id": "hard-sol-b-routing_hard-01",
+      "tier": "hard",
+      "seconds": 0.02744083300001421
+    },
+    {
+      "id": "hard-sol-b-routing_hard-02",
+      "tier": "hard",
+      "seconds": 0.02633853600002567
+    },
+    {
+      "id": "hard-sol-b-routing_hard-03",
+      "tier": "hard",
+      "seconds": 0.02695055500004173
+    },
+    {
+      "id": "hard-sol-b-routing_hard-07",
+      "tier": "hard",
+      "seconds": 0.025660754000000452
+    },
+    {
+      "id": "hard-sol-b-routing_hard-09",
+      "tier": "hard",
+      "seconds": 0.02570782500004043
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-01",
+      "tier": "hard",
+      "seconds": 0.025050364999970043
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-02",
+      "tier": "hard",
+      "seconds": 0.02477401999999529
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.024241931000005934
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-04",
+      "tier": "hard",
+      "seconds": 0.024451624999983324
+    },
+    {
+      "id": "hard-sol-c-judge_hard-03",
+      "tier": "hard",
+      "seconds": 0.03465358900001547
+    },
+    {
+      "id": "hard-sol-c-judge_hard-05",
+      "tier": "hard",
+      "seconds": 0.027163169000004928
+    },
+    {
+      "id": "hard-sol-c-judge_hard-07",
+      "tier": "hard",
+      "seconds": 0.026821132999998554
+    },
+    {
+      "id": "hard-sol-c-judge_hard-08",
+      "tier": "hard",
+      "seconds": 0.026908413999990444
+    },
+    {
+      "id": "hard-sol-c-judge_hard-09",
+      "tier": "hard",
+      "seconds": 0.026960866000024453
+    },
+    {
+      "id": "hard-sol-c-judge_hard-10",
+      "tier": "hard",
+      "seconds": 0.027180467999983193
+    },
+    {
+      "id": "hard-sol-c-judge_hard-11",
+      "tier": "hard",
+      "seconds": 0.02754527499996584
+    },
+    {
+      "id": "hard-sol-c-judge_hard-13",
+      "tier": "hard",
+      "seconds": 0.026798423000002458
+    },
+    {
+      "id": "hard-sol-c-judge_hard-15",
+      "tier": "hard",
+      "seconds": 0.0261503119999702
+    },
+    {
+      "id": "hard-sol-c-multi_hop-07",
+      "tier": "hard",
+      "seconds": 0.28054120900003454
+    },
+    {
+      "id": "hard-sol-c-multi_hop-09",
+      "tier": "hard",
+      "seconds": 0.2789919129999703
+    },
+    {
+      "id": "hard-sol-c-multi_hop-11",
+      "tier": "hard",
+      "seconds": 0.26021509999998216
+    },
+    {
+      "id": "hard-sol-c-multi_hop-12",
+      "tier": "hard",
+      "seconds": 0.03832398899999134
+    },
+    {
+      "id": "hard-sol-c-multi_hop-13",
+      "tier": "hard",
+      "seconds": 0.2912701019999986
+    }
+  ]
+}

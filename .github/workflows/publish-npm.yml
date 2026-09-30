@@ -11,10 +11,22 @@ name: Publish to npm
 #   Organization or user: wfzyx
 #   Repository:           von
 #   Workflow filename:    publish-npm.yml
+# Called by cut-release.yml; see publish-pypi.yml for why this is not
+# tag-triggered on its own.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_call:
+    inputs:
+      version:
+        description: "Version being released; must equal js/package.json"
+        type: string
+        required: true
+      dry_run:
+        type: boolean
+        default: false
+      ref:
+        description: "Commit to build; the bumped SHA from cut-release"
+        type: string
+        default: ""
   workflow_dispatch:
     inputs:
       dry_run:
@@ -35,6 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -50,15 +64,14 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify tag matches package version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Verify requested version matches package version
+        if: inputs.version != ''
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME#v}"
           PKG=$(node -p "require('./package.json').version")
-          echo "tag=$TAG package=$PKG"
-          if [ "$TAG" != "$PKG" ]; then
-            echo "::error::Tag v$TAG does not match js/package.json version $PKG."
+          echo "requested=${{ inputs.version }} package=$PKG"
+          if [ "${{ inputs.version }}" != "$PKG" ]; then
+            echo "::error::Requested ${{ inputs.version }} but js/package.json is $PKG."
             exit 1
           fi
 
@@ -83,7 +96,7 @@ jobs:
       - name: Publish
         # npm >= 11.5.1 performs the OIDC exchange itself when id-token: write
         # is set; no NODE_AUTH_TOKEN is needed or wanted.
-        if: steps.check.outputs.skip == 'false' && (startsWith(github.ref, 'refs/tags/v') || inputs.dry_run == false)
+        if: steps.check.outputs.skip == 'false' && inputs.dry_run == false
         run: |
           set -euo pipefail
           npm install -g npm@latest

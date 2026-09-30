@@ -1,0 +1,942 @@
+{
+  "system": "von-395m",
+  "checkpoint": "von-1.2",
+  "endpoint_kind": "cpu",
+  "hardware": "AWS c7i.xlarge (4 vCPU Intel Sapphire Rapids), openvino:cpu",
+  "device": "openvino:cpu",
+  "measured_where": "serial HTTP client on the same host, model loaded and warmed before timing",
+  "run": "serial 72-decision standard run (public has no judge tier)",
+  "python": "3.12.14",
+  "speed": {
+    "p50_s_raw": 0.09550966949999662,
+    "p95_s_raw": 0.10953044690000056,
+    "p50_s_adjusted": 0.34101933899999326,
+    "p95_s_adjusted": 0.3690608938000011,
+    "adjustment": "x2 + 0.15 s (JevBench self-hosted assumption)",
+    "score": 89.00122962539493,
+    "hard_tier_p50_s": 0.33902654799999254,
+    "hard_tier_p95_s": 3.839890747499993
+  },
+  "jev_class_latency_line": {
+    "adjusted_p50_max_s": 1.3,
+    "raw_p50_max_s": 0.575,
+    "passes": true
+  },
+  "per_item": [
+    {
+      "id": "original-policy-01-0",
+      "tier": "standard",
+      "seconds": 0.09770132500000273
+    },
+    {
+      "id": "original-policy-01-1",
+      "tier": "standard",
+      "seconds": 0.09289666699999088
+    },
+    {
+      "id": "original-policy-02-0",
+      "tier": "standard",
+      "seconds": 0.09469582599999171
+    },
+    {
+      "id": "original-policy-02-1",
+      "tier": "standard",
+      "seconds": 0.07862683999999831
+    },
+    {
+      "id": "original-policy-03-0",
+      "tier": "standard",
+      "seconds": 0.10032318700000076
+    },
+    {
+      "id": "original-policy-03-1",
+      "tier": "standard",
+      "seconds": 0.09031453000000056
+    },
+    {
+      "id": "original-policy-04-0",
+      "tier": "standard",
+      "seconds": 0.09405035500000736
+    },
+    {
+      "id": "original-policy-04-1",
+      "tier": "standard",
+      "seconds": 0.09758247799999253
+    },
+    {
+      "id": "original-policy-05-0",
+      "tier": "standard",
+      "seconds": 0.09532219700000155
+    },
+    {
+      "id": "original-policy-05-1",
+      "tier": "standard",
+      "seconds": 0.10333923800000377
+    },
+    {
+      "id": "original-policy-06-0",
+      "tier": "standard",
+      "seconds": 0.11183841799999072
+    },
+    {
+      "id": "original-policy-06-1",
+      "tier": "standard",
+      "seconds": 0.09452990100000136
+    },
+    {
+      "id": "original-intent-01-0",
+      "tier": "standard",
+      "seconds": 0.10268039299999998
+    },
+    {
+      "id": "original-intent-01-1",
+      "tier": "standard",
+      "seconds": 0.10323890099999744
+    },
+    {
+      "id": "original-intent-02-0",
+      "tier": "standard",
+      "seconds": 0.08034288900000774
+    },
+    {
+      "id": "original-intent-02-1",
+      "tier": "standard",
+      "seconds": 0.09544498200000362
+    },
+    {
+      "id": "original-intent-03-0",
+      "tier": "standard",
+      "seconds": 0.09710828899999058
+    },
+    {
+      "id": "original-intent-03-1",
+      "tier": "standard",
+      "seconds": 0.09511644700000943
+    },
+    {
+      "id": "original-intent-04-0",
+      "tier": "standard",
+      "seconds": 0.07492557700000191
+    },
+    {
+      "id": "original-intent-04-1",
+      "tier": "standard",
+      "seconds": 0.09528969500000528
+    },
+    {
+      "id": "original-intent-05-0",
+      "tier": "standard",
+      "seconds": 0.0901728209999959
+    },
+    {
+      "id": "original-intent-05-1",
+      "tier": "standard",
+      "seconds": 0.09041214299999467
+    },
+    {
+      "id": "original-intent-06-0",
+      "tier": "standard",
+      "seconds": 0.09867878099998961
+    },
+    {
+      "id": "original-intent-06-1",
+      "tier": "standard",
+      "seconds": 0.10200463200000343
+    },
+    {
+      "id": "original-ordinal-01-0",
+      "tier": "standard",
+      "seconds": 0.10711994300000072
+    },
+    {
+      "id": "original-ordinal-01-1",
+      "tier": "standard",
+      "seconds": 0.09686451199999624
+    },
+    {
+      "id": "original-ordinal-02-0",
+      "tier": "standard",
+      "seconds": 0.10878810799999883
+    },
+    {
+      "id": "original-ordinal-02-1",
+      "tier": "standard",
+      "seconds": 0.0934733940000001
+    },
+    {
+      "id": "original-ordinal-03-0",
+      "tier": "standard",
+      "seconds": 0.09688890199998923
+    },
+    {
+      "id": "original-ordinal-03-1",
+      "tier": "standard",
+      "seconds": 0.09731727199999796
+    },
+    {
+      "id": "original-ordinal-04-0",
+      "tier": "standard",
+      "seconds": 0.09225964899999894
+    },
+    {
+      "id": "original-ordinal-04-1",
+      "tier": "standard",
+      "seconds": 0.09488251199999809
+    },
+    {
+      "id": "original-ordinal-05-0",
+      "tier": "standard",
+      "seconds": 0.10550196699999503
+    },
+    {
+      "id": "original-ordinal-05-1",
+      "tier": "standard",
+      "seconds": 0.0932444819999887
+    },
+    {
+      "id": "original-ordinal-06-0",
+      "tier": "standard",
+      "seconds": 0.09753381300001251
+    },
+    {
+      "id": "original-ordinal-06-1",
+      "tier": "standard",
+      "seconds": 0.09614033200000449
+    },
+    {
+      "id": "original-extraction-01-0",
+      "tier": "standard",
+      "seconds": 0.0948122340000026
+    },
+    {
+      "id": "original-extraction-01-1",
+      "tier": "standard",
+      "seconds": 0.09627931400000023
+    },
+    {
+      "id": "original-extraction-02-0",
+      "tier": "standard",
+      "seconds": 0.09891367699999876
+    },
+    {
+      "id": "original-extraction-02-1",
+      "tier": "standard",
+      "seconds": 0.0946850930000096
+    },
+    {
+      "id": "original-extraction-03-0",
+      "tier": "standard",
+      "seconds": 0.09788281900000584
+    },
+    {
+      "id": "original-extraction-03-1",
+      "tier": "standard",
+      "seconds": 0.09706512699999337
+    },
+    {
+      "id": "original-extraction-04-0",
+      "tier": "standard",
+      "seconds": 0.0953802789999969
+    },
+    {
+      "id": "original-extraction-04-1",
+      "tier": "standard",
+      "seconds": 0.09431778299999394
+    },
+    {
+      "id": "original-extraction-05-0",
+      "tier": "standard",
+      "seconds": 0.09549887699999715
+    },
+    {
+      "id": "original-extraction-05-1",
+      "tier": "standard",
+      "seconds": 0.07999612100000775
+    },
+    {
+      "id": "original-extraction-06-0",
+      "tier": "standard",
+      "seconds": 0.0954304760000042
+    },
+    {
+      "id": "original-extraction-06-1",
+      "tier": "standard",
+      "seconds": 0.09541137899999796
+    },
+    {
+      "id": "original-adequacy-01-0",
+      "tier": "standard",
+      "seconds": 0.09688134799999659
+    },
+    {
+      "id": "original-adequacy-01-1",
+      "tier": "standard",
+      "seconds": 0.07802177799999299
+    },
+    {
+      "id": "original-adequacy-02-0",
+      "tier": "standard",
+      "seconds": 0.09552046199999609
+    },
+    {
+      "id": "original-adequacy-02-1",
+      "tier": "standard",
+      "seconds": 0.09570745300000283
+    },
+    {
+      "id": "original-adequacy-03-0",
+      "tier": "standard",
+      "seconds": 0.09488975399999333
+    },
+    {
+      "id": "original-adequacy-03-1",
+      "tier": "standard",
+      "seconds": 0.076105235
+    },
+    {
+      "id": "original-adequacy-04-0",
+      "tier": "standard",
+      "seconds": 0.08764553800000385
+    },
+    {
+      "id": "original-adequacy-04-1",
+      "tier": "standard",
+      "seconds": 0.07596106199999042
+    },
+    {
+      "id": "original-adequacy-05-0",
+      "tier": "standard",
+      "seconds": 0.09590435799999852
+    },
+    {
+      "id": "original-adequacy-05-1",
+      "tier": "standard",
+      "seconds": 0.07644812699999193
+    },
+    {
+      "id": "original-adequacy-06-0",
+      "tier": "standard",
+      "seconds": 0.08305817699999807
+    },
+    {
+      "id": "original-adequacy-06-1",
+      "tier": "standard",
+      "seconds": 0.07741446599999335
+    },
+    {
+      "id": "original-routing-01-0",
+      "tier": "standard",
+      "seconds": 0.09652995899999439
+    },
+    {
+      "id": "original-routing-01-1",
+      "tier": "standard",
+      "seconds": 0.09798928300000398
+    },
+    {
+      "id": "original-routing-02-0",
+      "tier": "standard",
+      "seconds": 0.11277839699999959
+    },
+    {
+      "id": "original-routing-02-1",
+      "tier": "standard",
+      "seconds": 0.10810103900000456
+    },
+    {
+      "id": "original-routing-03-0",
+      "tier": "standard",
+      "seconds": 0.10065507200000923
+    },
+    {
+      "id": "original-routing-03-1",
+      "tier": "standard",
+      "seconds": 0.11539439999999956
+    },
+    {
+      "id": "original-routing-04-0",
+      "tier": "standard",
+      "seconds": 0.09287569100000326
+    },
+    {
+      "id": "original-routing-04-1",
+      "tier": "standard",
+      "seconds": 0.10505562699999871
+    },
+    {
+      "id": "original-routing-05-0",
+      "tier": "standard",
+      "seconds": 0.09778885599999398
+    },
+    {
+      "id": "original-routing-05-1",
+      "tier": "standard",
+      "seconds": 0.11043775000000267
+    },
+    {
+      "id": "original-routing-06-0",
+      "tier": "standard",
+      "seconds": 0.09895257199998753
+    },
+    {
+      "id": "original-routing-06-1",
+      "tier": "standard",
+      "seconds": 0.09395601100000306
+    },
+    {
+      "id": "hard-opus-a-long_policy-01",
+      "tier": "hard",
+      "seconds": 5.557090861000006
+    },
+    {
+      "id": "hard-opus-a-long_policy-04",
+      "tier": "hard",
+      "seconds": 2.8117582490000075
+    },
+    {
+      "id": "hard-opus-a-long_policy-08",
+      "tier": "hard",
+      "seconds": 2.379105297999999
+    },
+    {
+      "id": "hard-opus-a-long_policy-09",
+      "tier": "hard",
+      "seconds": 2.565852444000001
+    },
+    {
+      "id": "hard-opus-a-long_policy-11",
+      "tier": "hard",
+      "seconds": 2.314612285999999
+    },
+    {
+      "id": "hard-opus-a-long_policy-13",
+      "tier": "hard",
+      "seconds": 2.3366244950000095
+    },
+    {
+      "id": "hard-opus-a-long_policy-17",
+      "tier": "hard",
+      "seconds": 2.410145952999997
+    },
+    {
+      "id": "hard-opus-a-long_policy-19",
+      "tier": "hard",
+      "seconds": 2.4562322230000007
+    },
+    {
+      "id": "hard-opus-a-probability-03",
+      "tier": "hard",
+      "seconds": 0.2564106309999943
+    },
+    {
+      "id": "hard-opus-a-probability-04",
+      "tier": "hard",
+      "seconds": 0.7262027409999945
+    },
+    {
+      "id": "hard-opus-a-probability-07",
+      "tier": "hard",
+      "seconds": 0.7522541330000081
+    },
+    {
+      "id": "hard-opus-a-probability-08",
+      "tier": "hard",
+      "seconds": 0.2219033299999893
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.2969263960000035
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-06",
+      "tier": "hard",
+      "seconds": 0.284396165000004
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-07",
+      "tier": "hard",
+      "seconds": 0.6466151189999891
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-09",
+      "tier": "hard",
+      "seconds": 0.31677021899999147
+    },
+    {
+      "id": "hard-opus-a-temporal_numeric-12",
+      "tier": "hard",
+      "seconds": 0.3094493319999998
+    },
+    {
+      "id": "hard-opus-b-ambiguous-02",
+      "tier": "hard",
+      "seconds": 0.31920627800001
+    },
+    {
+      "id": "hard-opus-b-ambiguous-03",
+      "tier": "hard",
+      "seconds": 0.3119583339999963
+    },
+    {
+      "id": "hard-opus-b-ambiguous-07",
+      "tier": "hard",
+      "seconds": 0.29745837499999084
+    },
+    {
+      "id": "hard-opus-b-ambiguous-09",
+      "tier": "hard",
+      "seconds": 0.3985565039999983
+    },
+    {
+      "id": "hard-opus-b-ambiguous-10",
+      "tier": "hard",
+      "seconds": 0.3006993219999998
+    },
+    {
+      "id": "hard-opus-b-ambiguous-11",
+      "tier": "hard",
+      "seconds": 0.2731120920000052
+    },
+    {
+      "id": "hard-opus-b-ambiguous-13",
+      "tier": "hard",
+      "seconds": 0.35233096199999636
+    },
+    {
+      "id": "hard-opus-b-multi_hop-03",
+      "tier": "hard",
+      "seconds": 3.116589609000002
+    },
+    {
+      "id": "hard-opus-b-multi_hop-04",
+      "tier": "hard",
+      "seconds": 2.4575742709999986
+    },
+    {
+      "id": "hard-opus-b-multi_hop-05",
+      "tier": "hard",
+      "seconds": 2.4279403839999816
+    },
+    {
+      "id": "hard-opus-b-multi_hop-07",
+      "tier": "hard",
+      "seconds": 2.5511531669999954
+    },
+    {
+      "id": "hard-opus-b-multi_hop-08",
+      "tier": "hard",
+      "seconds": 2.086823559999999
+    },
+    {
+      "id": "hard-opus-b-probability-01",
+      "tier": "hard",
+      "seconds": 1.5175213410000197
+    },
+    {
+      "id": "hard-opus-b-probability-02",
+      "tier": "hard",
+      "seconds": 0.297016971000005
+    },
+    {
+      "id": "hard-opus-b-probability-03",
+      "tier": "hard",
+      "seconds": 0.7498868410000057
+    },
+    {
+      "id": "hard-opus-b-probability-04",
+      "tier": "hard",
+      "seconds": 0.30928416000000425
+    },
+    {
+      "id": "hard-opus-b-probability-06",
+      "tier": "hard",
+      "seconds": 0.6421092819999785
+    },
+    {
+      "id": "hard-opus-b-tradeoff-01",
+      "tier": "hard",
+      "seconds": 0.570661484999988
+    },
+    {
+      "id": "hard-opus-b-tradeoff-03",
+      "tier": "hard",
+      "seconds": 0.4488474230000179
+    },
+    {
+      "id": "hard-opus-b-tradeoff-06",
+      "tier": "hard",
+      "seconds": 0.4833978990000105
+    },
+    {
+      "id": "hard-opus-b-tradeoff-07",
+      "tier": "hard",
+      "seconds": 0.46530480799998486
+    },
+    {
+      "id": "hard-opus-b-tradeoff-08",
+      "tier": "hard",
+      "seconds": 0.371695711000001
+    },
+    {
+      "id": "hard-opus-b-tradeoff-12",
+      "tier": "hard",
+      "seconds": 0.33902654799999254
+    },
+    {
+      "id": "hard-opus-c-long_policy-02",
+      "tier": "hard",
+      "seconds": 4.424449377999991
+    },
+    {
+      "id": "hard-opus-c-long_policy-03",
+      "tier": "hard",
+      "seconds": 4.331815145000007
+    },
+    {
+      "id": "hard-opus-c-long_policy-04",
+      "tier": "hard",
+      "seconds": 3.7735921639999788
+    },
+    {
+      "id": "hard-opus-c-long_policy-05",
+      "tier": "hard",
+      "seconds": 3.8331151539999837
+    },
+    {
+      "id": "hard-opus-c-long_policy-08",
+      "tier": "hard",
+      "seconds": 3.8466663410000024
+    },
+    {
+      "id": "hard-opus-c-long_policy-10",
+      "tier": "hard",
+      "seconds": 4.387701448999991
+    },
+    {
+      "id": "hard-opus-c-long_policy-11",
+      "tier": "hard",
+      "seconds": 4.128547449000024
+    },
+    {
+      "id": "hard-opus-c-probability-03",
+      "tier": "hard",
+      "seconds": 0.3341557380000211
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-02",
+      "tier": "hard",
+      "seconds": 0.590747226000019
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.5343553609999958
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-04",
+      "tier": "hard",
+      "seconds": 0.4097921639999811
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-06",
+      "tier": "hard",
+      "seconds": 0.6154100219999918
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-08",
+      "tier": "hard",
+      "seconds": 0.5690688720000026
+    },
+    {
+      "id": "hard-opus-c-temporal_numeric-12",
+      "tier": "hard",
+      "seconds": 0.5153857130000006
+    },
+    {
+      "id": "hard-sol-a-adversarial-01",
+      "tier": "hard",
+      "seconds": 0.1850548250000088
+    },
+    {
+      "id": "hard-sol-a-adversarial-06",
+      "tier": "hard",
+      "seconds": 0.15760061400001746
+    },
+    {
+      "id": "hard-sol-a-adversarial-07",
+      "tier": "hard",
+      "seconds": 0.18152235400000905
+    },
+    {
+      "id": "hard-sol-a-adversarial-08",
+      "tier": "hard",
+      "seconds": 0.15281877699999313
+    },
+    {
+      "id": "hard-sol-a-adversarial-09",
+      "tier": "hard",
+      "seconds": 0.15727665000000002
+    },
+    {
+      "id": "hard-sol-a-adversarial-11",
+      "tier": "hard",
+      "seconds": 0.1843805379999992
+    },
+    {
+      "id": "hard-sol-a-multi_hop-01",
+      "tier": "hard",
+      "seconds": 2.6821889499999827
+    },
+    {
+      "id": "hard-sol-a-multi_hop-02",
+      "tier": "hard",
+      "seconds": 2.7008660029999874
+    },
+    {
+      "id": "hard-sol-a-multi_hop-05",
+      "tier": "hard",
+      "seconds": 2.4507055459999947
+    },
+    {
+      "id": "hard-sol-a-multi_hop-07",
+      "tier": "hard",
+      "seconds": 2.2827060399999937
+    },
+    {
+      "id": "hard-sol-a-multi_hop-08",
+      "tier": "hard",
+      "seconds": 2.470429561000003
+    },
+    {
+      "id": "hard-sol-a-multi_hop-09",
+      "tier": "hard",
+      "seconds": 2.4493675399999972
+    },
+    {
+      "id": "hard-sol-a-multi_hop-10",
+      "tier": "hard",
+      "seconds": 2.4346147530000053
+    },
+    {
+      "id": "hard-sol-a-multi_hop-12",
+      "tier": "hard",
+      "seconds": 2.444869165
+    },
+    {
+      "id": "hard-sol-a-trap-02",
+      "tier": "hard",
+      "seconds": 0.1871591419999845
+    },
+    {
+      "id": "hard-sol-a-trap-04",
+      "tier": "hard",
+      "seconds": 0.13490813999999318
+    },
+    {
+      "id": "hard-sol-a-trap-05",
+      "tier": "hard",
+      "seconds": 0.19233371799998622
+    },
+    {
+      "id": "hard-sol-a-trap-06",
+      "tier": "hard",
+      "seconds": 0.19885149200001706
+    },
+    {
+      "id": "hard-sol-a-trap-08",
+      "tier": "hard",
+      "seconds": 0.16480998000000113
+    },
+    {
+      "id": "hard-sol-a-trap-10",
+      "tier": "hard",
+      "seconds": 0.16922000400001025
+    },
+    {
+      "id": "hard-sol-a-trap-13",
+      "tier": "hard",
+      "seconds": 0.1496092720000206
+    },
+    {
+      "id": "hard-sol-a-trap-15",
+      "tier": "hard",
+      "seconds": 0.19416692299998317
+    },
+    {
+      "id": "hard-sol-b-judge_hard-01",
+      "tier": "hard",
+      "seconds": 0.1551739829999974
+    },
+    {
+      "id": "hard-sol-b-judge_hard-02",
+      "tier": "hard",
+      "seconds": 0.13605747700000848
+    },
+    {
+      "id": "hard-sol-b-judge_hard-05",
+      "tier": "hard",
+      "seconds": 0.16716250900000773
+    },
+    {
+      "id": "hard-sol-b-judge_hard-08",
+      "tier": "hard",
+      "seconds": 0.18210705000001326
+    },
+    {
+      "id": "hard-sol-b-judge_hard-10",
+      "tier": "hard",
+      "seconds": 0.15181394500001488
+    },
+    {
+      "id": "hard-sol-b-judge_hard-14",
+      "tier": "hard",
+      "seconds": 0.15647106399998734
+    },
+    {
+      "id": "hard-sol-b-judge_hard-15",
+      "tier": "hard",
+      "seconds": 0.1700987509999834
+    },
+    {
+      "id": "hard-sol-b-judge_hard-18",
+      "tier": "hard",
+      "seconds": 0.1719131399999867
+    },
+    {
+      "id": "hard-sol-b-long_policy-01",
+      "tier": "hard",
+      "seconds": 3.0778438069999936
+    },
+    {
+      "id": "hard-sol-b-long_policy-02",
+      "tier": "hard",
+      "seconds": 3.073765977999983
+    },
+    {
+      "id": "hard-sol-b-long_policy-05",
+      "tier": "hard",
+      "seconds": 2.874692355999997
+    },
+    {
+      "id": "hard-sol-b-long_policy-06",
+      "tier": "hard",
+      "seconds": 2.9227611400000058
+    },
+    {
+      "id": "hard-sol-b-routing_hard-01",
+      "tier": "hard",
+      "seconds": 0.20560899500000573
+    },
+    {
+      "id": "hard-sol-b-routing_hard-02",
+      "tier": "hard",
+      "seconds": 0.19243832399999405
+    },
+    {
+      "id": "hard-sol-b-routing_hard-03",
+      "tier": "hard",
+      "seconds": 0.20449356800000373
+    },
+    {
+      "id": "hard-sol-b-routing_hard-07",
+      "tier": "hard",
+      "seconds": 0.18530604100001824
+    },
+    {
+      "id": "hard-sol-b-routing_hard-09",
+      "tier": "hard",
+      "seconds": 0.17797763199999395
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-01",
+      "tier": "hard",
+      "seconds": 0.15574072199999023
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-02",
+      "tier": "hard",
+      "seconds": 0.1666685579999978
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-03",
+      "tier": "hard",
+      "seconds": 0.14826655999999616
+    },
+    {
+      "id": "hard-sol-b-temporal_numeric-04",
+      "tier": "hard",
+      "seconds": 0.15676529300000652
+    },
+    {
+      "id": "hard-sol-c-judge_hard-03",
+      "tier": "hard",
+      "seconds": 0.28067556999999965
+    },
+    {
+      "id": "hard-sol-c-judge_hard-05",
+      "tier": "hard",
+      "seconds": 0.21510259900000506
+    },
+    {
+      "id": "hard-sol-c-judge_hard-07",
+      "tier": "hard",
+      "seconds": 0.1996316560000082
+    },
+    {
+      "id": "hard-sol-c-judge_hard-08",
+      "tier": "hard",
+      "seconds": 0.19076406300001736
+    },
+    {
+      "id": "hard-sol-c-judge_hard-09",
+      "tier": "hard",
+      "seconds": 0.2035409510000079
+    },
+    {
+      "id": "hard-sol-c-judge_hard-10",
+      "tier": "hard",
+      "seconds": 0.20967012700000964
+    },
+    {
+      "id": "hard-sol-c-judge_hard-11",
+      "tier": "hard",
+      "seconds": 0.22950095900000633
+    },
+    {
+      "id": "hard-sol-c-judge_hard-13",
+      "tier": "hard",
+      "seconds": 0.2072810940000238
+    },
+    {
+      "id": "hard-sol-c-judge_hard-15",
+      "tier": "hard",
+      "seconds": 0.19961458099999163
+    },
+    {
+      "id": "hard-sol-c-multi_hop-07",
+      "tier": "hard",
+      "seconds": 2.854102928000003
+    },
+    {
+      "id": "hard-sol-c-multi_hop-09",
+      "tier": "hard",
+      "seconds": 2.815930868999999
+    },
+    {
+      "id": "hard-sol-c-multi_hop-11",
+      "tier": "hard",
+      "seconds": 2.476908896999987
+    },
+    {
+      "id": "hard-sol-c-multi_hop-12",
+      "tier": "hard",
+      "seconds": 0.31109171599999286
+    },
+    {
+      "id": "hard-sol-c-multi_hop-13",
+      "tier": "hard",
+      "seconds": 2.86078337699999
+    }
+  ]
+}

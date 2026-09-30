@@ -22,7 +22,7 @@ from .api import system_one, decide, judge, rate, set_backend
 from . import presets
 from . import patterns
 
-__version__ = "1.2.3"
+__version__ = "1.3.5"
 
 __all__ = [
     "Noul",
