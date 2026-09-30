@@ -87,6 +87,8 @@ s = von.rate(state="Memory at 98%, OOM killer firing.", criteria=["Nominal", "De
              instructions="Assess degradation level.")
 ```
 
+`judge` without `criteria` is the weakest path: Von falls back to generic "condition holds / is false" descriptions and leans on surface cues in the state. For a yes/no gate you will act on, phrase it as a described 3-way Choice (for example `claim_only` / `observed_output` / `no_result`) or give `criteria={"true": ..., "false": ...}`, and check the result on a few labelled cases either way. English only: the encoder is English-trained and answers other languages with confidence it has not earned.
+
 Several questions over one state cost one forward pass:
 
 ```python
@@ -145,7 +147,18 @@ Chains are TOML files in `src/von/chains/library/` (deadline+timezone, month-win
 
 ## Training and calibration
 
-Von 1.2 is ModernBERT-large with an option-marker head, trained with a listwise softmax cross-entropy + Brier objective on ~63k operational decision items plus synthetic two-hop and numeric sets, with independent-options attention masking so option order cannot change the answer. Calibration is an input-conditioned temperature map fitted post hoc (`checkpoints/von-1.2/marker_calibration.json`). Every accuracy claim in this repo goes through `benchmarks/stat_gate.py` (paired exact McNemar + minimum detectable effect); results below the MDE are reported as UNRESOLVABLE, never as wins.
+Von 1.2 is ModernBERT-large with an option-marker head, trained with a listwise softmax cross-entropy + Brier objective on ~63k operational decision items plus synthetic two-hop and numeric sets, with independent-options attention masking so option order cannot change the answer. Calibration is an input-conditioned temperature map fitted post hoc (`checkpoints/von-1.2/marker_calibration.json`).
+
+That map was fitted on JevBench items and does not carry to other distributions: out of domain, Von can be confidently wrong. Refit it on your own labels, frozen weights, CPU, a few minutes:
+
+```bash
+von calibrate labels.jsonl                      # writes <checkpoint>/marker_calibration.json, which the backend prefers
+von calibrate labels.jsonl --out ./my.json      # or elsewhere; copy it into the checkpoint dir to activate
+```
+
+`labels.jsonl` is one wire question per line plus `gold`: `{"state": ..., "question": {"type": "choice", "instructions": ..., "criteria": {...}}, "gold": "auth"}` (Noul gold `yes`/`no`, Score gold a level index; shorthand `{"state", "instructions", "choices", "gold"}` works for Choice). It fits a scalar temperature and the four-feature map by NLL, keeps whichever wins k-fold cross-validation (a few dozen labels earn the scalar, a few hundred the map), and reports NLL and ECE for raw, shipped, scalar and map. Temperature never changes an answer, only how sure Von claims to be; wrong answers stay wrong, they just stop arriving at 0.9.
+
+Every accuracy claim in this repo goes through `benchmarks/stat_gate.py` (paired exact McNemar + minimum detectable effect); results below the MDE are reported as UNRESOLVABLE, never as wins.
 
 ## License
 

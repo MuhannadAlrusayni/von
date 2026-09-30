@@ -9,6 +9,7 @@ Executes single-pass non-autoregressive decision evaluation:
 import json
 import math
 import os
+import sys
 import threading
 import warnings
 from typing import Any, Dict, List, Optional, Union
@@ -266,7 +267,7 @@ def _compile_openvino_encoder(encoder: torch.nn.Module, target: str = "GPU") -> 
         compiled_model = core.compile_model(ov_model, device_name=target)
 
     dev_name = core.get_property(target, "FULL_DEVICE_NAME") if target in core.available_devices else target
-    print(f"[von] Accelerated ModernBERT encoder on {dev_name} via OpenVINO")
+    print(f"[von] Accelerated ModernBERT encoder on {dev_name} via OpenVINO", file=sys.stderr)
     return OpenVINOEncoderWrapper(compiled_plain=compiled_model, config=encoder.config)
 
 
@@ -306,7 +307,7 @@ def _compile_openvino_independent_encoder(encoder: torch.nn.Module, target: str 
         compiled_model = core.compile_model(ov_model, device_name=target)
 
     dev_name = core.get_property(target, "FULL_DEVICE_NAME") if target in core.available_devices else target
-    print(f"[von] Accelerated ModernBERT encoder (independent_options) on {dev_name} via OpenVINO")
+    print(f"[von] Accelerated ModernBERT encoder (independent_options) on {dev_name} via OpenVINO", file=sys.stderr)
     return OpenVINOEncoderWrapper(compiled_independent=compiled_model, config=encoder.config)
 
 class OptionMarkerBackend(BaseBackend):
@@ -376,6 +377,7 @@ class OptionMarkerBackend(BaseBackend):
         if not (0.5 <= self.noul_band_edge <= 1.0) or not (0.0 <= self.noul_band_slope <= 1.0):
             raise ValueError("VON_NOUL_BAND_EDGE must be in [0.5, 1] and VON_NOUL_BAND_SLOPE in [0, 1]")
         self._trunc_local = threading.local()
+        self._capture_local = threading.local()  # von calibrate: raw-logit sink
         # Chain-of-options: on by default with the bundled library in bindall
         # mode (Von 1.3). VON_CHAINS_DIR=<dir> swaps the library, VON_CHAINS_DIR=off
         # (von serve --no-chains) disables it. Sub-decisions made by the runner
@@ -475,12 +477,23 @@ class OptionMarkerBackend(BaseBackend):
         Temperature is monotonic, so this never moves the argmax: it changes how
         sure Von claims to be, never what Von answers.
         """
+        capture = getattr(self._capture_local, "sink", None)
+        if capture is not None:
+            # von calibrate: record the raw logits and the exact features the map
+            # reads, so a map can be refitted offline with no drift from serving.
+            capture.append(self._calib_features(logits, state_text, n_options, tokenizer))
         if override is not None:
             return override
         params = self._calib_map
         if not params:
             return self._default_temp
+        feats = self._calib_features(logits, state_text, n_options, tokenizer)["feats"]
+        raw = sum(params.get(k, 0.0) * v for k, v in feats.items())
+        return min(params["hi"], max(params["lo"], raw))
 
+    @staticmethod
+    def _calib_features(logits: "torch.Tensor", state_text: str, n_options: int, tokenizer) -> Dict[str, Any]:
+        """Features of the temperature map for one request (must match the fitter)."""
         probs = torch.softmax(logits.float(), dim=-1)
         n = max(probs.numel(), 1)
         if n > 1:
@@ -497,8 +510,7 @@ class OptionMarkerBackend(BaseBackend):
             "log_tokens": math.log10(tokens) / 4.0,
             "n_options": n_options / 8.0,
         }
-        raw = sum(params.get(k, 0.0) * v for k, v in feats.items())
-        return min(params["hi"], max(params["lo"], raw))
+        return {"logits": logits.detach().float().cpu().tolist(), "feats": feats}
 
     def _get_model(self) -> OptionMarkerModel:
         with self._lock:
@@ -562,11 +574,11 @@ class OptionMarkerBackend(BaseBackend):
 
                 if self._calib_map:
                     print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} "
-                          f"(input-conditioned calibration map active)")
+                          f"(input-conditioned calibration map active)", file=sys.stderr)
                 elif self._default_temp != 1.0:
-                    print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} (temperature {self._default_temp})")
+                    print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} (temperature {self._default_temp})", file=sys.stderr)
                 else:
-                    print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} (uncalibrated, T=1.0)")
+                    print(f"[von] Loaded {VON_MODEL_ID} weights from {loaded_from} (uncalibrated, T=1.0)", file=sys.stderr)
 
                 # OpenVINO needs a different traced graph per attention mode: the
                 # plain one takes a 2D padding mask; the order-invariant one takes

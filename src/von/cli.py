@@ -243,5 +243,36 @@ def eval(request_file: str):
     click.echo(json.dumps(resp.model_dump(), indent=2))
 
 
+@main.command()
+@click.argument("labels", type=click.Path(exists=True, dir_okay=False))
+@click.option("--out", default=None,
+              help="Where to write marker_calibration.json (default: <checkpoint>/marker_calibration.json, "
+                   "which the backend prefers over the shipped file).")
+@click.option("--checkpoint", default=None, help="Checkpoint directory (default: the one `von serve` would use).")
+@click.option("--device", default="cpu", help="Compute device; CPU is fine, this is inference only.")
+@click.option("--folds", default=5, type=int, show_default=True, help="Cross-validation folds for scalar-vs-map choice.")
+@click.option("--seed", default=0, type=int, show_default=True)
+def calibrate(labels: str, out: Optional[str], checkpoint: Optional[str], device: str, folds: int, seed: int):
+    """Refit confidence on your own labels; frozen weights, no GPU.
+
+    LABELS is JSON lines of {state, question:{type, instructions, criteria}, gold}.
+    Temperature never changes an answer, only how sure Von claims to be.
+    """
+    from von.backends.option_marker_backend import OptionMarkerBackend
+    from von.calibrate import run
+
+    if checkpoint is None:
+        checkpoint = OptionMarkerBackend(device=device).checkpoint_dir
+    if out is None:
+        out = os.path.join(checkpoint, "marker_calibration.json")
+    try:
+        written = run(labels, out, checkpoint, device=device, folds=folds, seed=seed, log=lambda m: click.echo(m, err=True))
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    click.echo(json.dumps({"out": out, "calibration_map": written["calibration_map"],
+                           "report": written["calibration_report"]}, indent=2))
+
+
 if __name__ == "__main__":
     main()
