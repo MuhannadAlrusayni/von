@@ -2,11 +2,15 @@
 
 # Von container image.
 #
-# Two variants differ only in which PyTorch wheel is installed:
-#   docker build --build-arg TORCH_BACKEND=cpu     -t von:cpu  .
-#   docker build --build-arg TORCH_BACKEND=default -t von:cuda .
+# Two variants differ in which PyTorch wheel is installed and whether OpenVINO
+# (the `intel` extra) is present:
+#   docker build --build-arg TORCH_BACKEND=cpu     -t von:cpu  .   # torch CPU wheel + OpenVINO; `auto` -> openvino:cpu
+#   docker build --build-arg TORCH_BACKEND=default -t von:cuda .   # CUDA torch wheel; `auto` -> cuda
 #
-# Model weights (~3.2 GB) are NOT baked in; they are fetched from the Hugging
+# The CPU image ships OpenVINO on purpose: Von's measured CPU latency (0.10 s p50
+# on c7i.xlarge) is the OpenVINO path; plain torch CPU is several times slower.
+#
+# Model weights (~3 GB) are NOT baked in; they are fetched from the Hugging
 # Face Hub into HF_HOME on first use. Mount a volume there to persist them.
 
 ARG PYTHON_VERSION=3.12
@@ -31,7 +35,8 @@ WORKDIR /build
 # Dependency layer first, so later source edits do not invalidate the torch install.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv export --locked --no-dev --no-emit-project --no-hashes \
+    if [ "${TORCH_BACKEND}" = "cpu" ]; then EXTRA="--extra intel"; else EXTRA=""; fi \
+ && uv export --locked --no-dev --no-emit-project --no-hashes ${EXTRA} \
       --format requirements-txt -o /tmp/requirements.txt
 
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -80,10 +85,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD python -c "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status==200 else 1)"
 
-# No --model flag on purpose: `von serve` defaults it to von-<VON_VERSION>
-# (engine.py), so omitting it avoids pinning a version that drifts on upgrade.
-# Note `--backend` is not a valid flag -- the flag is `--model`, which the CLI
-# copies into VON_BACKEND. Neither is "option-marker" a valid alias; the
-# accepted set is VON_CURRENT_ALIASES, all of which select the one model.
+# No --model flag on purpose: `von serve` defaults to the current release alias,
+# so omitting it avoids pinning a version that drifts on upgrade. Arguments after
+# the image name are appended to `von serve` (e.g. `--on-overflow refuse`).
 ENTRYPOINT ["von", "serve"]
 CMD ["--host", "0.0.0.0", "--port", "8000"]
